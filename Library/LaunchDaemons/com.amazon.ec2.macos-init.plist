@@ -15,7 +15,7 @@
 		<false/>
 	</dict>
 	<key>Label</key>
-	<string>com.amazon.ec2.macosinit</string>
+	<string>com.amazon.ec2.macos-init</string>
 	<key>ProgramArguments</key>
 	<array>
 		<string>/usr/local/bin/ec2-macos-init</string>
@@ -24,9 +24,9 @@
 	<key>RunAtLoad</key>
 	<true/>
 	<key>StandardErrorPath</key>
-	<string>/var/log/ec2-macos-init.log</string>
+	<string>/var/log/amazon/ec2/ec2-macos-init.log</string>
 	<key>StandardOutPath</key>
-	<string>/var/log/ec2-macos-init.log</string>
+	<string>/var/log/amazon/ec2/ec2-macos-init.log</string>
 	<key>UserName</key>
 	<string>root</string>
 </dict>

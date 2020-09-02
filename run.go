@@ -105,10 +105,14 @@ func run(c *ec2macosinit.InitConfig) {
 							aggFatalModuleName = m.Name
 						}
 					} else {
-						c.Log.Infof("Successfully completed module [%s] (type: %s, group: %d) with message: %s\n", m.Name, m.Type, m.PriorityGroup, message)
+						// Module was successfully completed
 						m.Success = true
+						c.Log.Infof("Successfully completed module [%s] (type: %s, group: %d) with message: %s\n", m.Name, m.Type, m.PriorityGroup, message)
 					}
 				} else {
+					// In the case that we choose not to run a module, it is because the module has already succeeded
+					// in a prior run. For this reason, we need to pass through the success of the module to history.
+					m.Success = true
 					c.Log.Infof("Skipping module [%s] (type: %s, group: %d) due to Run type setting\n", m.Name, m.Type, m.PriorityGroup)
 				}
 				wg.Done()

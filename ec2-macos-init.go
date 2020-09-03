@@ -77,16 +77,16 @@ func main() {
 
 	// Check runtime OS
 	if !(runtime.GOOS == "darwin") {
-		logger.Fatal("Can only be run from macOS!")
+		logger.Fatal(1, "Can only be run from macOS!")
 	}
 
 	// Check that this is being run by a user with root permissions
 	root, err := checkRootPermissions()
 	if err != nil {
-		logger.Fatalf("Error while checking root permissions: %s", err)
+		logger.Fatalf(71, "Error while checking root permissions: %s", err)
 	}
 	if !root {
-		logger.Fatal("Must be run with root permissions!")
+		logger.Fatal(64, "Must be run with root permissions!")
 	}
 
 	// Check for no command

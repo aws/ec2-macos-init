@@ -93,14 +93,14 @@ func (l *Logger) Errorf(format string, v ...interface{}) {
 	}
 }
 
-// Fatal writes an error to stdout and/or the system log then exits 1.
-func (l *Logger) Fatal(v ...interface{}) {
+// Fatal writes an error to stdout and/or the system log then exits with requested code.
+func (l *Logger) Fatal(e int, v ...interface{}) {
 	l.Error(v...)
-	os.Exit(1)
+	os.Exit(e)
 }
 
-// Fatalf writes a formatted error to stdout and/or the system log then exits 1.
-func (l *Logger) Fatalf(format string, v ...interface{}) {
+// Fatalf writes a formatted error to stdout and/or the system log then exits with requested code.
+func (l *Logger) Fatalf(e int, format string, v ...interface{}) {
 	l.Errorf(format, v...)
-	os.Exit(1)
+	os.Exit(e)
 }

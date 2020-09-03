@@ -17,7 +17,11 @@ type InitConfig struct {
 	Log               *Logger
 	Modules           []Module `toml:"Module"`
 	ModulesByPriority [][]Module
+	FatalCounts       FatalCount
 }
+
+// Number of runs resulting in fatal exits in a single boot before giving up
+const PerBootFatalLimit = 100
 
 // ReadConfig reads the configuration file and decodes it into the InitConfig struct.
 func (c *InitConfig) ReadConfig(fileLocation string) (err error) {
@@ -83,4 +87,19 @@ func (c *InitConfig) PrioritizeModules() (err error) {
 	}
 
 	return nil
+}
+
+// RetriesExceeded checks if the number of previous fatal exits exceeds the limit.
+func (c *InitConfig) RetriesExceeded() (exceeded bool, err error) {
+	// Check for the existence of the temporary file and get the current fatal count
+	err = c.FatalCounts.readFatalCount()
+	if err != nil {
+		return false, fmt.Errorf("ec2macosinit: unable to read fatal counts: %s", err)
+	}
+	// If there have been more than the limit of fatal exits, return true
+	if c.FatalCounts.Count > PerBootFatalLimit {
+		return true, nil
+	}
+	// Otherwise, continue
+	return false, nil
 }

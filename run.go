@@ -20,11 +20,14 @@ import (
 //      group fails and has FatalOnError set, the entire application exits early.
 //   7. Write history file - After any run, a history.json file is written to the instance history directory for future runs.
 func run(c *ec2macosinit.InitConfig) {
+
+	c.Log.Info("Fetching instance ID from IMDS...")
 	// An instance ID from IMDS is a prerequisite for run() to be able to check instance history
 	err := SetupInstanceID(c)
 	if err != nil {
-		c.Log.Fatalf("Unable to get instance ID: %s", err)
+		c.Log.Fatalf(computeExitCode(c, 1), "Unable to get instance ID: %s", err)
 	}
+	c.Log.Infof("Running on instance %s", c.IMDS.InstanceID)
 
 	// Mark start time
 	startTime := time.Now()
@@ -33,7 +36,7 @@ func run(c *ec2macosinit.InitConfig) {
 	c.Log.Info("Reading init config...")
 	err = c.ReadConfig(path.Join(baseDir, configFile))
 	if err != nil {
-		c.Log.Fatalf("Error while reading init config file: %s", err)
+		c.Log.Fatalf(computeExitCode(c, 66), "Error while reading init config file: %s", err)
 	}
 	c.Log.Info("Successfully read init config")
 
@@ -41,7 +44,7 @@ func run(c *ec2macosinit.InitConfig) {
 	c.Log.Info("Validating config...")
 	err = c.ValidateAndIdentify()
 	if err != nil {
-		c.Log.Fatalf("Error found during init config validation: %s", err)
+		c.Log.Fatalf(computeExitCode(c, 65), "Error found during init config validation: %s", err)
 	}
 	c.Log.Info("Successfully validated config")
 
@@ -49,7 +52,7 @@ func run(c *ec2macosinit.InitConfig) {
 	c.Log.Info("Prioritizing modules...")
 	err = c.PrioritizeModules()
 	if err != nil {
-		c.Log.Fatalf("Error preparing and identifying modules: %s", err)
+		c.Log.Fatalf(computeExitCode(c, 1), "Error preparing and identifying modules: %s", err)
 	}
 	c.Log.Info("Successfully prioritized modules")
 
@@ -57,7 +60,7 @@ func run(c *ec2macosinit.InitConfig) {
 	c.Log.Info("Creating instance history directories for current instance...")
 	err = c.CreateDirectories()
 	if err != nil {
-		c.Log.Fatalf("Error creating instance history directories: %s", err)
+		c.Log.Fatalf(computeExitCode(c, 73), "Error creating instance history directories: %s", err)
 	}
 	c.Log.Info("Successfully created directories")
 
@@ -65,7 +68,7 @@ func run(c *ec2macosinit.InitConfig) {
 	c.Log.Info("Getting instance history...")
 	err = c.GetInstanceHistory()
 	if err != nil {
-		c.Log.Fatalf("Error getting instance history: %s", err)
+		c.Log.Fatalf(computeExitCode(c, 1), "Error getting instance history: %s", err)
 	}
 	c.Log.Info("Successfully gathered instance history")
 
@@ -130,15 +133,44 @@ func run(c *ec2macosinit.InitConfig) {
 	c.Log.Infof("Writing instance history for instance %s...", c.IMDS.InstanceID)
 	err = c.WriteHistoryFile()
 	if err != nil {
-		c.Log.Fatalf("Error writing instance history file: %s", err)
+		c.Log.Fatalf(computeExitCode(c, 73), "Error writing instance history file: %s", err)
 	}
 	c.Log.Info("Successfully wrote instance history")
 
 	// If any module triggered an aggregate fatal, exit 1
 	if aggregateFatal {
-		c.Log.Fatalf("Exiting after %s due to failure in module [%s] with FatalOnError set", time.Since(startTime).String(), aggFatalModuleName)
+		c.Log.Fatalf(computeExitCode(c, 1), "Exiting after %s due to failure in module [%s] with FatalOnError set", time.Since(startTime).String(), aggFatalModuleName)
 	}
 
 	// Log completion and total run time
 	c.Log.Infof("EC2 macOS Init completed in %s", time.Since(startTime).String())
+}
+
+// computeExitCode checks to see if the number of fatal retries has been exceeded. If not, it increments the counter,
+// stored in a temporary file, and returns the requested exit code. If the count is exceeded, it returns 0 to avoid
+// launchd restarting forever due to the KeepAlive setting.
+func computeExitCode(c *ec2macosinit.InitConfig, e int) (exitCode int) {
+	// Check if other runs have happened this boot and return data about them
+	exceeded, err := c.RetriesExceeded()
+	if err != nil {
+		c.Log.Errorf("Error while getting retry information: %s", err)
+		return 1
+	}
+
+	// If the count has exceed the limit, return 0
+	if exceeded {
+		c.Log.Errorf("Number of fatal retries (%d) exceeded, exiting 0 to avoid infinite runs",
+			c.FatalCounts.Count)
+		return 0
+	}
+
+	c.Log.Infof("Fatal [%d/%d] of this boot", c.FatalCounts.Count, ec2macosinit.PerBootFatalLimit)
+	// Increment the counter in the temporary file before returning
+	err = c.FatalCounts.IncrementFatalCount()
+	if err != nil {
+		c.Log.Errorf("Unable to write fatal counts to file: %s", err)
+	}
+
+	// Return the requested exit code
+	return e
 }

@@ -20,7 +20,7 @@ type NetworkCheckModule struct {
 }
 
 // Do for NetworkCheck Module gets the default gateway and pings it to check if the network is up.
-func (c *NetworkCheckModule) Do() (message string, err error) {
+func (c *NetworkCheckModule) Do(ctx *ModuleContext) (message string, err error) {
 	// Get default gateway
 	out, err := executeCommand([]string{"/bin/zsh", "-c", "route -n get default | grep gateway"}, "", []string{})
 	if err != nil {

@@ -20,9 +20,9 @@ const (
 
 // Do for UserDataModule gets the userdata from IMDS and writes it to a file in the instance history. If configured,
 // it runs the user data as an executable.
-func (c *UserDataModule) Do(imds *IMDSConfig) (message string, err error) {
+func (c *UserDataModule) Do(ctx *ModuleContext) (message string, err error) {
 	// Get user data from IMDS
-	ud, respCode, err := imds.getIMDSProperty("user-data")
+	ud, respCode, err := ctx.IMDS.getIMDSProperty("user-data")
 	if err != nil {
 		return "", fmt.Errorf("ec2macosinit: error getting user data from IMDS: %s\n", err)
 	}
@@ -34,7 +34,7 @@ func (c *UserDataModule) Do(imds *IMDSConfig) (message string, err error) {
 	}
 
 	// Write user data to file
-	userDataFile := path.Join(baseDir, imds.InstanceID, fileName)
+	userDataFile := path.Join(baseDir, ctx.IMDS.InstanceID, fileName)
 	f, err := os.OpenFile(userDataFile, os.O_CREATE|os.O_WRONLY, 0755)
 	if err != nil {
 		return "", fmt.Errorf("ec2macosinit: error while opening user data file: %s\n", err)

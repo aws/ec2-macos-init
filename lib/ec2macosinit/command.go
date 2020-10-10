@@ -13,7 +13,7 @@ type CommandModule struct {
 }
 
 // Do for CommandModule runs a command with the values set in the config file.
-func (c *CommandModule) Do() (message string, err error) {
+func (c *CommandModule) Do(ctx *ModuleContext) (message string, err error) {
 	out, err := executeCommand(c.Cmd, c.RunAsUser, c.EnvironmentVars)
 	if err != nil {
 		return "", fmt.Errorf("ec2macosinit: error executing command [%s] with stderr [%s]: %s",

@@ -39,7 +39,7 @@ func (l *Logger) Info(v ...interface{}) {
 		log.Print(v...)
 	}
 	if l.LogToSystemLog {
-		l.SystemLog.Info(fmt.Sprint(v...))
+		_ = l.SystemLog.Info(fmt.Sprint(v...))
 	}
 }
 
@@ -49,7 +49,7 @@ func (l *Logger) Infof(format string, v ...interface{}) {
 		log.Printf(format, v...)
 	}
 	if l.LogToSystemLog {
-		l.SystemLog.Info(fmt.Sprintf(format, v...))
+		_ = l.SystemLog.Info(fmt.Sprintf(format, v...))
 	}
 }
 
@@ -59,7 +59,7 @@ func (l *Logger) Warn(v ...interface{}) {
 		log.Print(v...)
 	}
 	if l.LogToSystemLog {
-		l.SystemLog.Warning(fmt.Sprint(v...))
+		_ = l.SystemLog.Warning(fmt.Sprint(v...))
 	}
 }
 
@@ -69,7 +69,7 @@ func (l *Logger) Warnf(format string, v ...interface{}) {
 		log.Printf(format, v...)
 	}
 	if l.LogToSystemLog {
-		l.SystemLog.Warning(fmt.Sprintf(format, v...))
+		_ = l.SystemLog.Warning(fmt.Sprintf(format, v...))
 	}
 }
 
@@ -79,7 +79,7 @@ func (l *Logger) Error(v ...interface{}) {
 		log.Print(v...)
 	}
 	if l.LogToSystemLog {
-		l.SystemLog.Err(fmt.Sprint(v...))
+		_ = l.SystemLog.Err(fmt.Sprint(v...))
 	}
 }
 
@@ -89,7 +89,7 @@ func (l *Logger) Errorf(format string, v ...interface{}) {
 		log.Printf(format, v...)
 	}
 	if l.LogToSystemLog {
-		l.SystemLog.Err(fmt.Sprintf(format, v...))
+		_ = l.SystemLog.Err(fmt.Sprintf(format, v...))
 	}
 }
 

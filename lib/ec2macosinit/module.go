@@ -22,6 +22,13 @@ type Module struct {
 	SSHKeysModule      SSHKeysModule      `toml:"SSHKeys"`
 	UserDataModule     UserDataModule     `toml:"UserData"`
 	NetworkCheckModule NetworkCheckModule `toml:"NetworkCheck"`
+	SystemConfigModule SystemConfigModule `toml:"SystemConfig"`
+}
+
+// ModuleContext contains fields that may need to be passed to the Do function for modules.
+type ModuleContext struct {
+	Logger *Logger
+	IMDS   *IMDSConfig
 }
 
 // validateModule performs the following checks:
@@ -68,6 +75,10 @@ func (m *Module) identifyModule() (err error) {
 	}
 	if !cmp.Equal(m.NetworkCheckModule, NetworkCheckModule{}) {
 		m.Type = "networkcheck"
+		return nil
+	}
+	if !cmp.Equal(m.SystemConfigModule, SystemConfigModule{}) {
+		m.Type = "systemconfig"
 		return nil
 	}
 

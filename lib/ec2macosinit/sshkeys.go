@@ -19,7 +19,7 @@ type SSHKeysModule struct {
 
 // Do for the SSHKeysModule does some brief validation, gets the IMDS key (if configured), appends static keys (if
 // configured), and then writes them to the authorized_keys file for the user.
-func (c *SSHKeysModule) Do(imds *IMDSConfig) (message string, err error) {
+func (c *SSHKeysModule) Do(ctx *ModuleContext) (message string, err error) {
 	// If we're not getting the key from IMDS and there are no keys provided, there's nothing to do here
 	if !c.GetIMDSOpenSSHKey && len(c.StaticOpenSSHKeys) == 0 {
 		return "nothing to do", nil
@@ -53,7 +53,7 @@ func (c *SSHKeysModule) Do(imds *IMDSConfig) (message string, err error) {
 	keySet := map[string]struct{}{}
 	if c.GetIMDSOpenSSHKey {
 		// Get IMDS property "meta-data/public-keys/0/openssh-key"
-		imdsKey, respCode, err := imds.getIMDSProperty("meta-data/public-keys/0/openssh-key")
+		imdsKey, respCode, err := ctx.IMDS.getIMDSProperty("meta-data/public-keys/0/openssh-key")
 		if err != nil {
 			return "", fmt.Errorf("ec2macosinit: error getting openSSH key from IMDS: %s\n", err)
 		}

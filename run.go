@@ -87,16 +87,22 @@ func run(c *ec2macosinit.InitConfig) {
 					c.Log.Infof("Running module [%s] (type: %s, group: %d)\n", m.Name, m.Type, m.PriorityGroup)
 					var message string
 					var err error
+					ctx := &ec2macosinit.ModuleContext{
+						Logger: c.Log,
+						IMDS:   &c.IMDS,
+					}
 					// Run appropriate module
 					switch t := m.Type; t {
 					case "command":
-						message, err = m.CommandModule.Do()
+						message, err = m.CommandModule.Do(ctx)
 					case "sshkeys":
-						message, err = m.SSHKeysModule.Do(&c.IMDS)
+						message, err = m.SSHKeysModule.Do(ctx)
 					case "userdata":
-						message, err = m.UserDataModule.Do(&c.IMDS)
+						message, err = m.UserDataModule.Do(ctx)
 					case "networkcheck":
-						message, err = m.NetworkCheckModule.Do()
+						message, err = m.NetworkCheckModule.Do(ctx)
+					case "systemconfig":
+						message, err = m.SystemConfigModule.Do(ctx)
 					default:
 						message = "unknown module type"
 						err = fmt.Errorf("unknown module type")

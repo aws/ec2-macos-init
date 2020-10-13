@@ -31,138 +31,74 @@ PingCount = 3 # Three attempts
 ## The second group has many actions that can be run in parallel including:
 ##   1. Optimize kernel and networking parameters
 ##   2. Disable auto-update
-##   3. Reset a random password for ec2-user
-##   4. Set the default timezone (GMT)
-##   5. Set timed to use Amazon Time Sync Service
-##   6. Update MOTD
-##   7. Remove SSH group
+##   3. Apply suggested SSHD security settings
+##   4. Reset a random password for ec2-user
+##   5. Set the default timezone (GMT)
+##   6. Set timed to use Amazon Time Sync Service
+##   7. Update MOTD
+##   8. Remove SSH group
 
-# Set kern.aiomax=900
+# Set suggested default system configuration settings
+# These kernel and networking parameters are suggested by EC2 for optimal instance performance.
 [[Module]]
-Name = "Set-kern.aiomax"
+Name = "EC2SuggestedDefaultConfigPerformance"
 PriorityGroup = 2 # Second group
-RunPerBoot = true # Run every boot
+RunPerBoot = true # Run every boot to enforce these parameters
 FatalOnError = false # Best effort, don't fatal on error
-[Module.Command]
-Cmd = ["sysctl", "-w", "kern.aiomax=900"] # Use sysctl to set property
+[Module.SystemConfig]
+[[Module.SystemConfig.Sysctl]]
+value = "kern.aiomax=900"
+[[Module.SystemConfig.Sysctl]]
+value = "kern.aioprocmax=256"
+[[Module.SystemConfig.Sysctl]]
+value = "kern.aiothreads=64"
+[[Module.SystemConfig.Sysctl]]
+value = "net.inet.tcp.win_scale_factor=8"
+[[Module.SystemConfig.Sysctl]]
+value = "net.inet.tcp.autorcvbufmax=33554432"
+[[Module.SystemConfig.Sysctl]]
+value = "net.inet.tcp.autosndbufmax=33554432"
+[[Module.SystemConfig.Sysctl]]
+value = "net.inet.tcp.sendspace=1048576"
+[[Module.SystemConfig.Sysctl]]
+value = "net.inet.tcp.recvspace=1048576"
+[[Module.SystemConfig.Sysctl]]
+value = "net.link.generic.system.rcvq_maxlen=1024"
+[[Module.SystemConfig.Defaults]]
+plist = "/Library/Preferences/com.apple.SoftwareUpdate.plist"
+parameter = "AutomaticallyInstallMacOSUpdates"
+type = "bool"
+value = "false"
+[[Module.SystemConfig.Defaults]]
+plist = "/Library/Preferences/com.apple.SoftwareUpdate.plist"
+parameter = "AutomaticCheckEnabled"
+type = "bool"
+value = "false"
+[[Module.SystemConfig.Defaults]]
+plist = "/Library/Preferences/com.apple.SoftwareUpdate.plist"
+parameter = "AutomaticDownload"
+type = "bool"
+value = "false"
+[[Module.SystemConfig.Defaults]]
+plist = "/Library/Preferences/com.apple.SoftwareUpdate.plist"
+parameter = "CriticalUpdateInstall"
+type = "bool"
+value = "false"
+[[Module.SystemConfig.Defaults]]
+plist = "/Library/Preferences/com.apple.SoftwareUpdate.plist"
+parameter = "ConfigDataInstall"
+type = "bool"
+value = "false"
 
-# Set kern.aioprocmax=256
+# Apply secure settings to SSHD on every boot
+# To manage ssh_config separately, disable this module
 [[Module]]
-Name = "Set-kern.aioprocmax"
+Name = "EC2SuggestedDefaultConfigSecurity"
 PriorityGroup = 2 # Second group
-RunPerBoot = true # Run every boot
-FatalOnError = false # Best effort, don't fatal on error
-[Module.Command]
-Cmd = ["sysctl", "-w", "kern.aioprocmax=256"] # Use sysctl to set property
-
-# Set kern.aiothreads=64
-# We use "|| true" on this one because this property errors if equal or lower
-[[Module]]
-Name = "Set-kern.aiothreads"
-PriorityGroup = 2 # Second group
-RunPerBoot = true # Run every boot
-FatalOnError = false # Best effort, don't fatal on error
-[Module.Command]
-Cmd = ["/bin/zsh", "-c", "[ $(sysctl kern.aiothreads | cut -d' ' -f2) -le 64 ] && sysctl -w kern.aiothreads=64 || true"] # Use sysctl to set property
-
-# Set net.inet.tcp.win_scale_factor=8
-[[Module]]
-Name = "Set-net.inet.tcp.win_scale_factor"
-PriorityGroup = 2 # Second group
-RunPerBoot = true # Run every boot
-FatalOnError = false # Best effort, don't fatal on error
-[Module.Command]
-Cmd = ["sysctl", "-w", "net.inet.tcp.win_scale_factor=8"] # Use sysctl to set property
-
-# Set net.inet.tcp.autorcvbufmax=33554432
-[[Module]]
-Name = "Set-net.inet.tcp.autorcvbufmax"
-PriorityGroup = 2 # Second group
-RunPerBoot = true # Run every boot
-FatalOnError = false # Best effort, don't fatal on error
-[Module.Command]
-Cmd = ["sysctl", "-w", "net.inet.tcp.autorcvbufmax=33554432"] # Use sysctl to set property
-
-# Set net.inet.tcp.autosndbufmax=33554432
-[[Module]]
-Name = "Set-net.inet.tcp.autosndbufmax"
-PriorityGroup = 2 # Second group
-RunPerBoot = true # Run every boot
-FatalOnError = false # Best effort, don't fatal on error
-[Module.Command]
-Cmd = ["sysctl", "-w", "net.inet.tcp.autosndbufmax=33554432"] # Use sysctl to set property
-
-# Set net.inet.tcp.sendspace=1048576
-[[Module]]
-Name = "Set-net.inet.tcp.sendspace"
-PriorityGroup = 2 # Second group
-RunPerBoot = true # Run every boot
-FatalOnError = false # Best effort, don't fatal on error
-[Module.Command]
-Cmd = ["sysctl", "-w", "net.inet.tcp.sendspace=1048576"] # Use sysctl to set property
-
-# Set net.inet.tcp.recvspace=1048576
-[[Module]]
-Name = "Set-net.inet.tcp.recvspace"
-PriorityGroup = 2 # Second group
-RunPerBoot = true # Run every boot
-FatalOnError = false # Best effort, don't fatal on error
-[Module.Command]
-Cmd = ["sysctl", "-w", "net.inet.tcp.recvspace=1048576"] # Use sysctl to set property
-
-# Set net.link.generic.system.rcvq_maxlen=1024
-[[Module]]
-Name = "Set-net.link.generic.system.rcvq_maxlen"
-PriorityGroup = 2 # Second group
-RunPerBoot = true # Run every boot
-FatalOnError = false # Best effort, don't fatal on error
-[Module.Command]
-Cmd = ["sysctl", "-w", "net.link.generic.system.rcvq_maxlen=1024"] # Use sysctl to set property
-
-# Disable AutomaticallyInstallMacOSUpdates
-[[Module]]
-Name = "Disable-AutomaticallyInstallMacOSUpdates"
-PriorityGroup = 2 # Second group
-RunPerBoot = true # Run every boot
-FatalOnError = false # Best effort, don't fatal on error
-[Module.Command]
-Cmd = ["/usr/bin/defaults", "write", "/Library/Preferences/com.apple.SoftwareUpdate.plist", "AutomaticallyInstallMacOSUpdates", "-bool", "false"] # Use defaults to set property
-
-# Disable AutomaticCheckEnabled
-[[Module]]
-Name = "Disable-AutomaticCheckEnabled"
-PriorityGroup = 2 # Second group
-RunPerBoot = true # Run every boot
-FatalOnError = false # Best effort, don't fatal on error
-[Module.Command]
-Cmd = ["/usr/bin/defaults", "write", "/Library/Preferences/com.apple.SoftwareUpdate.plist", "AutomaticCheckEnabled", "-bool", "false"] # Use defaults to set property
-
-# Disable AutomaticDownload
-[[Module]]
-Name = "Disable-AutomaticDownload"
-PriorityGroup = 2 # Second group
-RunPerBoot = true # Run every boot
-FatalOnError = false # Best effort, don't fatal on error
-[Module.Command]
-Cmd = ["/usr/bin/defaults", "write", "/Library/Preferences/com.apple.SoftwareUpdate.plist", "AutomaticDownload", "-bool", "false"] # Use defaults to set property
-
-# Disable CriticalUpdateInstall
-[[Module]]
-Name = "Disable-CriticalUpdateInstall"
-PriorityGroup = 2 # Second group
-RunPerBoot = true # Run every boot
-FatalOnError = false # Best effort, don't fatal on error
-[Module.Command]
-Cmd = ["/usr/bin/defaults", "write", "/Library/Preferences/com.apple.SoftwareUpdate.plist", "CriticalUpdateInstall", "-bool", "false"] # Use defaults to set property
-
-# Disable ConfigDataInstall
-[[Module]]
-Name = "Disable-ConfigDataInstall"
-PriorityGroup = 2 # Second group
-RunPerBoot = true # Run every boot
-FatalOnError = false # Best effort, don't fatal on error
-[Module.Command]
-Cmd = ["/usr/bin/defaults", "write", "/Library/Preferences/com.apple.SoftwareUpdate.plist", "ConfigDataInstall", "-bool", "false"] # Use defaults to set property
+RunPerBoot = true # Run every boot to enforce these parameters
+FatalOnError = true # Security settings, must succeed
+[Module.SystemConfig]
+secureSSHDConfig = true
 
 # Set a random password for ec2-user
 [[Module]]

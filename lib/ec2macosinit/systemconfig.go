@@ -10,9 +10,16 @@ import (
 	"strings"
 	"sync"
 	"sync/atomic"
+	"time"
 )
 
 const (
+	// ConfigurationManagementWarning is a header warning for sshd_config
+	ConfigurationManagementWarning = "### This file is managed by EC2 macOS Init, changes will be applied on every boot. To disable set secureSSHDConfig = false in /usr/local/aws/ec2-macos-init/init.toml ###"
+	// InlineWarning is a warning line for each entry to help encourage users to avoid doing the risky configuration change
+	InlineWarning = "# EC2 Configuration: The follow setting is recommended by EC2 and set on boot. Set secureSSHDConfig = false in /usr/local/aws/ec2-macos-init/init.toml to disable.\n"
+	// SSHDConfigFile is the default path for the SSHD configuration file
+	SSHDConfigFile = "/etc/ssh/sshd_config"
 	// DefaultsCmd is the path to the script edit macOS defaults
 	DefaultsCmd = "/usr/bin/defaults"
 	// DefaultsRead is the command to read from a plist
@@ -35,15 +42,6 @@ type ModifyDefaults struct {
 	Type      string `toml:"type"`
 	Value     string `toml:"value"`
 }
-
-// ConfigurationManagementWarning is a header warning for sshd_config
-const ConfigurationManagementWarning = "### This file is managed by EC2 macOS Init, changes will be applied on every boot. To disable set secureSSHDConfig = false in /usr/local/aws/ec2-macos-init/init.toml ###"
-
-// InlineWarning is a warning line for each entry to help encourage users to avoid doing the risky configuration change
-const InlineWarning = "# EC2 Configuration: The follow setting is recommended by EC2 and set on boot. Set secureSSHDConfig = false in /usr/local/aws/ec2-macos-init/init.toml to disable.\n"
-
-// SSHDConfigFile is the default path for the SSHD configuration file
-const SSHDConfigFile = "/etc/ssh/sshd_config"
 
 // SystemConfigModule contains all necessary configuration fields for running a System Configuration module.
 type SystemConfigModule struct {
@@ -103,8 +101,7 @@ func (c *SystemConfigModule) Do(ctx *ModuleContext) (message string, err error) 
 	var defaultsChanged, defaultsUnchanged, defaultsErrors int32
 	for _, m := range c.ModifyDefaults {
 		wg.Add(1)
-
-		go func(modifyDefault *ModifyDefaults) {
+		go func(modifyDefault ModifyDefaults) {
 			changed, err := modifyDefaults(modifyDefault)
 			if err != nil {
 				atomic.AddInt32(&defaultsErrors, 1)
@@ -118,24 +115,24 @@ func (c *SystemConfigModule) Do(ctx *ModuleContext) (message string, err error) 
 				ctx.Logger.Infof("Did not modify default [%s]", modifyDefault.Parameter)
 			}
 			wg.Done()
-		}(&m)
+		}(m)
 	}
 
+	// Wait for everything to finish
 	wg.Wait()
 
 	// Craft output message
 	totalChanged := sysctlChanged + defaultsChanged + sshdConfigChanges
 	totalUnchanged := sysctlUnchanged + defaultsUnchanged + sshdUnchanged
 	totalErrors := sysctlErrors + defaultsErrors + sshdErrors
-
-	message = fmt.Sprintf("system configuration completed with [%d changed / %d unchanged / %d error(s)] out of %d requested changes",
+	baseMessage := fmt.Sprintf("[%d changed / %d unchanged / %d error(s)] out of %d requested changes",
 		totalChanged, totalUnchanged, totalErrors, totalChanged+totalUnchanged)
 
 	if totalErrors > 0 {
-		return message, fmt.Errorf("ec2macosinit: one or more system configuration changes were unsuccessful")
+		return "", fmt.Errorf("one or more system configuration changes were unsuccessful: %s", baseMessage)
 	}
 
-	return message, nil
+	return "system configuration completed with " + baseMessage, nil
 }
 
 // modifySysctl modifies a sysctl parameter, if necessary.
@@ -156,38 +153,34 @@ func modifySysctl(value string) (changed bool, err error) {
 		return false, nil // Exit early if value is already set
 	}
 
-	// Set value, if necessary
-	_, err = executeCommand([]string{"sysctl", value}, "", []string{})
-	if err != nil {
-		return false, fmt.Errorf("ec2macosinit: unable to set desired value using sysctl: %s", err)
-	}
+	// Attempt to set the value five times, with 100ms in between each attempt
+	err = retry(5, 100*time.Millisecond, func() (err error) {
+		// Set value
+		_, err = executeCommand([]string{"sysctl", value}, "", []string{})
+		if err != nil {
+			return fmt.Errorf("ec2macosinit: unable to set desired value using sysctl: %s", err)
+		}
 
-	// Validate new value
-	output, err = executeCommand([]string{"sysctl", "-e", param}, "", []string{})
+		// Validate new value
+		output, err = executeCommand([]string{"sysctl", "-e", param}, "", []string{})
+		if err != nil {
+			return fmt.Errorf("ec2macosinit: unable to get current value from sysctl: %s", err)
+		}
+		if strings.TrimSpace(output.stdout) != value {
+			return fmt.Errorf("ec2macosinit: error setting new value using sysctl: %s", output.stdout)
+		}
+
+		return nil
+	})
 	if err != nil {
-		return false, fmt.Errorf("ec2macosinit: unable to get current value from sysctl: %s", err)
-	}
-	if strings.TrimSpace(output.stdout) != value {
-		return false, fmt.Errorf("ec2macosinit: error setting new value using sysctl: %s", output.stdout)
+		return false, err
 	}
 
 	return true, nil
 }
 
 // modifyDefaults modifies a default, if necessary.
-func modifyDefaults(modifyDefault *ModifyDefaults) (changed bool, err error) {
-	// Check current type for parameter we're looking to set
-	err = checkDefaultsType(modifyDefault)
-	if err != nil {
-		return false, fmt.Errorf("ec2macosinit: error while checking default type: %s", err)
-	}
-
-	// Check to ensure that the value matches the type
-	err = checkValueMatchesType(modifyDefault)
-	if err != nil {
-		return false, fmt.Errorf("ec2macosinit: value %s did not match type %s for plist %s, parameter %s", modifyDefault.Value, modifyDefault.Type, modifyDefault.Plist, modifyDefault.Parameter)
-	}
-
+func modifyDefaults(modifyDefault ModifyDefaults) (changed bool, err error) {
 	// Check to see if current value already matches
 	err = checkDefaultsValue(modifyDefault)
 	if err == nil {
@@ -209,42 +202,8 @@ func modifyDefaults(modifyDefault *ModifyDefaults) (changed bool, err error) {
 	return true, nil
 }
 
-// checkDefaultsType checks the type of the parameter in the plist. For reference, the valid types
-// can be found here: https://ss64.com/osx/defaults.html.
-func checkDefaultsType(modifyDefault *ModifyDefaults) (err error) {
-	// Check type of current parameter in plist
-	readTypeCmd := []string{DefaultsCmd, DefaultsReadType, modifyDefault.Plist, modifyDefault.Parameter}
-	out, err := executeCommand(readTypeCmd, "", []string{})
-	if err != nil {
-		return err
-	}
-
-	// Extract the type by removing "Type is" in front and removing whitespace
-	currentType := strings.TrimSpace(strings.Replace(out.stdout, "Type is", "", 1))
-	switch modifyDefault.Type {
-	// Only implemented for bool[ean] now, more types to be implemented later
-	case "bool", "boolean":
-		if currentType != "boolean" {
-			fmt.Errorf("ec2macosinit: parameter types did not match - expected: (bool, boolean), actual: %s", currentType)
-		}
-	}
-
-	return nil
-}
-
-// checkValueMatchesType checks the the value passed in matches the type.
-func checkValueMatchesType(modifyDefault *ModifyDefaults) (err error) {
-	// Check to ensure that the value can be converted to the correct type
-	switch modifyDefault.Type {
-	// Only implemented for bool[ean] now, more types to be implemented later
-	case "bool", "boolean":
-		_, err = strconv.ParseBool(modifyDefault.Value)
-	}
-	return err
-}
-
 // checkDefaultsValue checks the value for a given parameter in a plist.
-func checkDefaultsValue(modifyDefault *ModifyDefaults) (err error) {
+func checkDefaultsValue(modifyDefault ModifyDefaults) (err error) {
 	// Check value of current parameter in plist
 	readCmd := []string{DefaultsCmd, DefaultsRead, modifyDefault.Plist, modifyDefault.Parameter}
 	out, err := executeCommand(readCmd, "", []string{})
@@ -266,7 +225,7 @@ func checkDefaultsValue(modifyDefault *ModifyDefaults) (err error) {
 }
 
 // updateDefaultsValue updates the value of a parameter in a given plist.
-func updateDefaultsValue(modifyDefault *ModifyDefaults) (err error) {
+func updateDefaultsValue(modifyDefault ModifyDefaults) (err error) {
 	// Update the value, specifying its type
 	writeCmd := []string{DefaultsCmd, DefaultsWrite, modifyDefault.Plist, modifyDefault.Parameter, "-" + modifyDefault.Type, modifyDefault.Value}
 	_, err = executeCommand(writeCmd, "", []string{})
@@ -376,7 +335,7 @@ func (c *SystemConfigModule) configureSSHD(ctx *ModuleContext) (configChanges bo
 				return false, fmt.Errorf("ec2macosinit: error writing to %s", tempSSHDFile.Name())
 			}
 			// Overwrite with desired configuration line
-			tempSSHDFile.WriteString("PasswordAuthentication no\n")
+			_, err = tempSSHDFile.WriteString("PasswordAuthentication no\n")
 			if err != nil {
 				return false, fmt.Errorf("ec2macosinit: error writing to %s", tempSSHDFile.Name())
 			}
@@ -392,7 +351,7 @@ func (c *SystemConfigModule) configureSSHD(ctx *ModuleContext) (configChanges bo
 				return false, fmt.Errorf("ec2macosinit: error writing to %s", tempSSHDFile.Name())
 			}
 			// Overwrite with desired configuration line
-			tempSSHDFile.WriteString("UsePAM no\n")
+			_, err = tempSSHDFile.WriteString("UsePAM no\n")
 			if err != nil {
 				return false, fmt.Errorf("ec2macosinit: error writing to %s", tempSSHDFile.Name())
 			}
@@ -408,7 +367,7 @@ func (c *SystemConfigModule) configureSSHD(ctx *ModuleContext) (configChanges bo
 				return false, fmt.Errorf("ec2macosinit: error writing to %s", tempSSHDFile.Name())
 			}
 			// Overwrite with desired configuration line
-			tempSSHDFile.WriteString("ChallengeResponseAuthentication no\n")
+			_, err = tempSSHDFile.WriteString("ChallengeResponseAuthentication no\n")
 			if err != nil {
 				return false, fmt.Errorf("ec2macosinit: error writing to %s", tempSSHDFile.Name())
 			}
@@ -417,7 +376,7 @@ func (c *SystemConfigModule) configureSSHD(ctx *ModuleContext) (configChanges bo
 
 		default:
 			// Otherwise write the line as is to the temp file without modification
-			tempSSHDFile.WriteString(currentLine + "\n")
+			_, err = tempSSHDFile.WriteString(currentLine + "\n")
 			if err != nil {
 				return false, fmt.Errorf("ec2macosinit: error writing to %s", tempSSHDFile.Name())
 			}

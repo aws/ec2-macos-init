@@ -10,6 +10,7 @@ import (
 	"strconv"
 	"strings"
 	"syscall"
+	"time"
 )
 
 // ioReadCloserToString converts an io.ReadCloser to a string.
@@ -161,4 +162,20 @@ func userExists(username string) (exists bool, err error) {
 
 	// No output means the user does not exist
 	return false, nil
+}
+
+// retry is an extremely simple retry function which waits a specified duration on error and retries.
+func retry(attempts int, sleep time.Duration, f func() error) (err error) {
+	for i := 0; ; i++ {
+		err = f()
+		if err == nil {
+			return
+		}
+		if i >= (attempts - 1) {
+			break
+		}
+
+		time.Sleep(sleep)
+	}
+	return fmt.Errorf("after %d attempts, last error: %s", attempts, err)
 }

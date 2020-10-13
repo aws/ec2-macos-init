@@ -255,25 +255,28 @@ func checkBoolean(expectedValue, actualValue string) (err error) {
 
 // checkSSHDReturn uses launchctl to find the exit code for ssh.plist and returns if it was successful
 func (c *SystemConfigModule) checkSSHDReturn() (success bool, err error) {
-	// This zsh call allows a fast and small number of lines to parse, it doesn't appear to work without it
-	// the grep sshd. strictly looks for a UUID launch result since sshd is special on macOS
-	out, err := executeCommand([]string{"/bin/zsh", "-c", "/bin/launchctl list | /usr/bin/grep sshd."}, "", []string{})
-	if err != nil {
-		return false, fmt.Errorf("ec2macosinit: failed to get sshd status: %s", err)
+	// Launchd can provide status on processes running, this gets that output to be parsed
+	out, err := executeCommand([]string{"launchctl", "list"}, "", []string{})
+	// Start a line by line scanner
+	scanner := bufio.NewScanner(strings.NewReader(out.stdout))
+	for scanner.Scan() {
+		// Fetch the next line
+		line := scanner.Text()
+		// If the line contains "sshd." then the real SSHD is started, not just the dummy sshd wrapper
+		if strings.Contains(line, "sshd.") {
+			// Strip the newline, then split on tabs to get fields
+			launchctlFields := strings.Split(strings.Replace(line, "\n", "", -1), "\t")
+			// Take the second field which is the process exit code on start
+			retValue, err := strconv.ParseBool(launchctlFields[1])
+			if err != nil {
+				return false, fmt.Errorf("ec2macosinit: failed to get sshd exit code: %s", err)
+			}
+			// Return true for zero (good exit) otherwise false
+			return !retValue, nil
+		}
 	}
-	// Trim out the newlines since it causes strange results
-	launchctlFields := strings.Split(strings.Replace(out.stdout, "\n", "", -1), "\t")
-	if len(launchctlFields) < 2 {
-		return false, fmt.Errorf("ec2macosinit: failed to parse launchctl list [#%d fields]: %s", len(launchctlFields), err)
-	}
-	// Trust that the first result is useful enough, more than one running agent happens but still confirms that its running
-	retValue, err := strconv.ParseBool(launchctlFields[1])
-	if err != nil {
-		return false, fmt.Errorf("ec2macosinit: failed to parse sshd status: %s", err)
-	}
-	// Return the inverse of a bool, since 0 is good, non-zero is bad
-	return !retValue, nil
-
+	// If all of "launchctl list" output doesn't have a status, simply return false since its not running
+	return false, nil
 }
 
 // checkAndWriteWarning is a helper function to write out the warning if not present
@@ -393,7 +396,7 @@ func (c *SystemConfigModule) configureSSHD(ctx *ModuleContext) (configChanges bo
 		// Get the current status of SSHD, if its not running, then it should not be started
 		sshdRunning, err := c.checkSSHDReturn()
 		if err != nil {
-			ctx.Logger.Errorf("ec2macosinit: unable to get SSHD status %s: %s", SSHDConfigFile, err)
+			ctx.Logger.Errorf("ec2macosinit: unable to get SSHD status: %s", err)
 		}
 
 		// Move the temporary file to the SSHDConfigFile

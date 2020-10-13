@@ -1,7 +1,11 @@
 package ec2macosinit
 
 import (
+	"bufio"
 	"fmt"
+	"io/ioutil"
+	"log"
+	"os"
 	"strconv"
 	"strings"
 	"sync"
@@ -32,6 +36,15 @@ type ModifyDefaults struct {
 	Value     string `toml:"value"`
 }
 
+// ConfigurationManagementWarning is a header warning for sshd_config
+const ConfigurationManagementWarning = "### This file is managed by EC2 macOS Init, changes will be applied on every boot. To disable set secureSSHDConfig = false in /usr/local/aws/ec2-macos-init/init.toml ###"
+
+// InlineWarning is a warning line for each entry to help encourage users to avoid doing the risky configuration change
+const InlineWarning = "# EC2 Configuration: The follow setting is recommended by EC2 and set on boot. Set secureSSHDConfig = false in /usr/local/aws/ec2-macos-init/init.toml to disable.\n"
+
+// SSHDConfigFile is the default path for the SSHD configuration file
+const SSHDConfigFile = "/etc/ssh/sshd_config"
+
 // SystemConfigModule contains all necessary configuration fields for running a System Configuration module.
 type SystemConfigModule struct {
 	SecureSSHDConfig bool             `toml:"secureSSHDConfig"`
@@ -43,8 +56,27 @@ type SystemConfigModule struct {
 // configuration file.
 func (c *SystemConfigModule) Do(ctx *ModuleContext) (message string, err error) {
 	wg := sync.WaitGroup{}
+
 	// Secure SSHD configuration
-	// TODO implement secure SSHD configuration
+	var sshdConfigChanges, sshdUnchanged, sshdErrors int32
+	if c.SecureSSHDConfig {
+		wg.Add(1)
+		go func() {
+			changes, err := c.configureSSHD(ctx)
+			if err != nil {
+				atomic.AddInt32(&sshdErrors, 1)
+				ctx.Logger.Errorf("Error while attempting to correct SSHD configuration: %s", err)
+			}
+			if changes {
+				// Add change for messaging
+				atomic.AddInt32(&sshdConfigChanges, 1)
+			} else {
+				// No changes made
+				atomic.AddInt32(&sshdUnchanged, 1)
+			}
+			wg.Done()
+		}()
+	}
 
 	// Modifications using sysctl
 	var sysctlChanged, sysctlUnchanged, sysctlErrors int32
@@ -92,9 +124,9 @@ func (c *SystemConfigModule) Do(ctx *ModuleContext) (message string, err error) 
 	wg.Wait()
 
 	// Craft output message
-	totalChanged := sysctlChanged + defaultsChanged
-	totalUnchanged := sysctlUnchanged + defaultsUnchanged
-	totalErrors := sysctlErrors + defaultsErrors
+	totalChanged := sysctlChanged + defaultsChanged + sshdConfigChanges
+	totalUnchanged := sysctlUnchanged + defaultsUnchanged + sshdUnchanged
+	totalErrors := sysctlErrors + defaultsErrors + sshdErrors
 
 	message = fmt.Sprintf("system configuration completed with [%d changed / %d unchanged / %d error(s)] out of %d requested changes",
 		totalChanged, totalUnchanged, totalErrors, totalChanged+totalUnchanged)
@@ -211,7 +243,7 @@ func checkValueMatchesType(modifyDefault *ModifyDefaults) (err error) {
 	return err
 }
 
-// checkDefaultValue checks the value for a given parameter in a plist.
+// checkDefaultsValue checks the value for a given parameter in a plist.
 func checkDefaultsValue(modifyDefault *ModifyDefaults) (err error) {
 	// Check value of current parameter in plist
 	readCmd := []string{DefaultsCmd, DefaultsRead, modifyDefault.Plist, modifyDefault.Parameter}
@@ -260,4 +292,184 @@ func checkBoolean(expectedValue, actualValue string) (err error) {
 	} else {
 		return nil
 	}
+}
+
+// checkSSHDReturn uses launchctl to find the exit code for ssh.plist and returns if it was successful
+func (c *SystemConfigModule) checkSSHDReturn() (success bool, err error) {
+	// This zsh call allows a fast and small number of lines to parse, it doesn't appear to work without it
+	// the grep sshd. strictly looks for a UUID launch result since sshd is special on macOS
+	out, err := executeCommand([]string{"/bin/zsh", "-c", "/bin/launchctl list | /usr/bin/grep sshd."}, "", []string{})
+	if err != nil {
+		return false, fmt.Errorf("ec2macosinit: failed to get sshd status: %s", err)
+	}
+	// Trim out the newlines since it causes strange results
+	launchctlFields := strings.Split(strings.Replace(out.stdout, "\n", "", -1), "\t")
+	if len(launchctlFields) < 2 {
+		return false, fmt.Errorf("ec2macosinit: failed to parse launchctl list [#%d fields]: %s", len(launchctlFields), err)
+	}
+	// Trust that the first result is useful enough, more than one running agent happens but still confirms that its running
+	retValue, err := strconv.ParseBool(launchctlFields[1])
+	if err != nil {
+		return false, fmt.Errorf("ec2macosinit: failed to parse sshd status: %s", err)
+	}
+	// Return the inverse of a bool, since 0 is good, non-zero is bad
+	return !retValue, nil
+
+}
+
+// checkAndWriteWarning is a helper function to write out the warning if not present
+func checkAndWriteWarning(lastLine string, tempSSHDFile *os.File) (err error) {
+	if !strings.Contains(lastLine, "EC2 Configuration") && lastLine != InlineWarning {
+		_, err := tempSSHDFile.WriteString(InlineWarning)
+		if err != nil {
+			return fmt.Errorf("ec2macosinit: error writing to %s", tempSSHDFile.Name())
+		}
+	}
+	return nil
+}
+
+// configureSSHD scans the SSHConfigFile and writes to a temporary file if changes are detected. If changes are detected
+// it replaces the SSHConfigFile. If SSHD is detected as running, it restarts it.
+func (c *SystemConfigModule) configureSSHD(ctx *ModuleContext) (configChanges bool, err error) {
+	// Look for each thing and fix them if found
+	sshdFile, err := os.Open(SSHDConfigFile)
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer sshdFile.Close()
+
+	// Create scanner for the SSHD file
+	scanner := bufio.NewScanner(sshdFile)
+
+	// Create a new temporary file, if changes are detected, it will be moved over the existing file
+	tempSSHDFile, err := ioutil.TempFile("", "sshd_config_fixed.*")
+	if err != nil {
+		return false, fmt.Errorf("ec2macosinit: error creating %s", tempSSHDFile.Name())
+	}
+	defer tempSSHDFile.Close()
+
+	// Keep track of line number simply for confirming warning header
+	var lineNumber int
+	// Track the last line for adding in warning when needed
+	var lastLine string
+	// Iterate over every line in the file
+	for scanner.Scan() {
+		lineNumber++
+		currentLine := scanner.Text()
+		// If this is the first line in the file, look for the warning header and add if missing
+		if lineNumber == 1 && currentLine != ConfigurationManagementWarning {
+			_, err = tempSSHDFile.WriteString(ConfigurationManagementWarning + "\n")
+			if err != nil {
+				return false, fmt.Errorf("ec2macosinit: error writing to %s", tempSSHDFile.Name())
+			}
+			configChanges = true
+			lastLine = ConfigurationManagementWarning
+		}
+
+		switch {
+		// Check if PasswordAuthentication is enabled, if so put in warning and change the config
+		// PasswordAuthentication allows SSHD to respond to user password brute force attacks and can result in lowered
+		// security, especially if a simple password is set. In EC2, this is undesired and therefore turned off by default
+		case strings.Contains(currentLine, "PasswordAuthentication yes"):
+			err = checkAndWriteWarning(lastLine, tempSSHDFile)
+			if err != nil {
+				return false, fmt.Errorf("ec2macosinit: error writing to %s", tempSSHDFile.Name())
+			}
+			// Overwrite with desired configuration line
+			tempSSHDFile.WriteString("PasswordAuthentication no\n")
+			if err != nil {
+				return false, fmt.Errorf("ec2macosinit: error writing to %s", tempSSHDFile.Name())
+			}
+			// Changes detected so this will enforce updating the file later
+			configChanges = true
+
+			// Check if PAM is enabled, if so, put in warning and change the config
+			// PAM authentication enables challenge-response authentication which can allow brute force attacks on SSHD
+			// In EC2, this is undesired and therefore turned off by default
+		case strings.TrimSpace(currentLine) == "UsePAM yes":
+			err = checkAndWriteWarning(lastLine, tempSSHDFile)
+			if err != nil {
+				return false, fmt.Errorf("ec2macosinit: error writing to %s", tempSSHDFile.Name())
+			}
+			// Overwrite with desired configuration line
+			tempSSHDFile.WriteString("UsePAM no\n")
+			if err != nil {
+				return false, fmt.Errorf("ec2macosinit: error writing to %s", tempSSHDFile.Name())
+			}
+			// Changes detected so this will enforce updating the file later
+			configChanges = true
+
+			// Check if Challenge-response is enabled, if so put in warning and change the config
+			// Challenge-response authentication via SSHD can allow brute force attacks for SSHD. In EC2, this is undesired
+			// and therefore turned off by default
+		case strings.Contains(currentLine, "ChallengeResponseAuthentication yes"):
+			err = checkAndWriteWarning(lastLine, tempSSHDFile)
+			if err != nil {
+				return false, fmt.Errorf("ec2macosinit: error writing to %s", tempSSHDFile.Name())
+			}
+			// Overwrite with desired configuration line
+			tempSSHDFile.WriteString("ChallengeResponseAuthentication no\n")
+			if err != nil {
+				return false, fmt.Errorf("ec2macosinit: error writing to %s", tempSSHDFile.Name())
+			}
+			// Changes detected so this will enforce updating the file later
+			configChanges = true
+
+		default:
+			// Otherwise write the line as is to the temp file without modification
+			tempSSHDFile.WriteString(currentLine + "\n")
+			if err != nil {
+				return false, fmt.Errorf("ec2macosinit: error writing to %s", tempSSHDFile.Name())
+			}
+		}
+		// Rotate the current line to the last line so that comments can be inserted above rewritten lines
+		lastLine = currentLine
+	}
+	if err := scanner.Err(); err != nil {
+		return false, fmt.Errorf("ec2macosinit: error reading %s: %s", SSHDConfigFile, err)
+	}
+
+	// If there was a change detected, then copy the file and restart sshd
+	if configChanges {
+		// Get the current status of SSHD, if its not running, then it should not be started
+		sshdRunning, err := c.checkSSHDReturn()
+		if err != nil {
+			ctx.Logger.Errorf("ec2macosinit: unable to get SSHD status %s: %s", SSHDConfigFile, err)
+		}
+
+		// Move the temporary file to the SSHDConfigFile
+		err = os.Rename(tempSSHDFile.Name(), SSHDConfigFile)
+		if err != nil {
+			return false, fmt.Errorf("ec2macosinit: unable to save updated configuration to %s", SSHDConfigFile)
+		}
+		// Temporary files have different permissions by design, correct the permissions for SSHDConfigFile
+		err = os.Chmod(SSHDConfigFile, 0644)
+		if err != nil {
+			return false, fmt.Errorf("ec2macosinit: unable to set correct permssions of %s", SSHDConfigFile)
+		}
+		// If SSHD was detected as running, then a restart must happen, if it was not running, the work is complete
+		if sshdRunning {
+			// Unload and load SSHD, the launchctl method for re-loading SSHD with new configuration
+			_, err = executeCommand([]string{"/bin/zsh", "-c", "launchctl unload /System/Library/LaunchDaemons/ssh.plist"}, "", []string{})
+			if err != nil {
+				ctx.Logger.Errorf("ec2macosinit: unable to stop SSHD %s", err)
+				return false, fmt.Errorf("ec2macosinit: unable to stop SSHD %s", err)
+			}
+			_, err = executeCommand([]string{"/bin/zsh", "-c", "launchctl load -w /System/Library/LaunchDaemons/ssh.plist"}, "", []string{})
+			if err != nil {
+				ctx.Logger.Errorf("ec2macosinit: unable to restart SSHD %s", err)
+				return false, fmt.Errorf("ec2macosinit: unable to restart SSHD %s", err)
+			}
+			// Add the message to state that config was modified and SSHD was correctly restarted
+			ctx.Logger.Info("Modified SSHD configuration and restarted SSHD for new configuration")
+		} else {
+			// Since SSHD was not running, only change the configuration but no restarting is desired
+			ctx.Logger.Info("Modified SSHD configuration, did not restart SSHD since it was not running")
+		}
+	} else {
+		// There were no changes detected from desired state, simply exit and let the temp file be
+		ctx.Logger.Info("Did not modify SSHD configuration")
+	}
+	// Return the message to caller for logging
+	return configChanges, nil
 }

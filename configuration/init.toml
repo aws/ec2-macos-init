@@ -146,6 +146,15 @@ FatalOnError = false # Best effort, don't fatal on error
 [Module.Command]
 Cmd = ["/bin/zsh", "-c", "dscl /Local/Default delete /Groups/com.apple.access_ssh || true"] # Use dscl to delete group
 
+# Disable WiFi
+[[Module]]
+Name = "DisableWiFi"
+PriorityGroup = 2 # Second group
+RunOnce = true # Run every boot
+FatalOnError = false # Best effort, don't fatal on error
+[Module.Command]
+Cmd = ["/bin/zsh", "-c", 'wifidevice="$(networksetup -listallhardwareports | grep -A 1 "Wi-Fi" | tail -n 1 | cut -d " " -f2)"; networksetup -setairportpower $wifidevice off'] # Grep for the wifi device, and then turn off power to that device
+
 ### Group 3 ###
 ## This group gets keys from IMDS and allows ssh access to the instance.
 

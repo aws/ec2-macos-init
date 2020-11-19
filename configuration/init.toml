@@ -153,7 +153,7 @@
     RunPerBoot = true # Run every boot
     FatalOnError = false # Best effort, don't fatal on error
     [Module.Command]
-        Cmd = ["/bin/zsh", "-c", 'wifidevice="$(networksetup -listallhardwareports | grep -A 1 "Wi-Fi" | tail -n 1 | cut -d " " -f2)"; networksetup -setairportpower $wifidevice off'] # Turn off wifi device
+        Cmd = ["/bin/zsh", "-c", 'wifidevice="$(networksetup -listallhardwareports | grep -A 1 "Wi-Fi" | tail -n 1 | cut -d " " -f2)"; if [[ ! -z $wifidevice ]]; then networksetup -setairportpower $wifidevice off; fi'] # Turn off wifi device
 
 ### Group 3 ###
 ## This group gets keys from IMDS and allows ssh access to the instance.

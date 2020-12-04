@@ -18,7 +18,7 @@ const (
 	instanceHistoryDir = "instances"
 	historyFileName    = "history.json"
 	loggingTag         = "ec2-macOS-init"
-	gitHubLink         = ""
+	gitHubLink         = "https://github.com/aws/ec2-macos-init"
 )
 
 // Build time variables

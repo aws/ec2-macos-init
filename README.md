@@ -123,7 +123,7 @@ format (`ssh-rsa <material> <comment>`) and adds them to `authorized_keys`. Defa
 * `OverwriteAuthorizedKeys` (`bool`) - Optional; Overwrite the `authorized_keys` file each time this module runs. 
 This can be useful in ensuring that old keys are removed every launch and replaced by new ones through either of the 
 IMDS or static key options. Default is `false`.
-* `User` (`string`) - Optional; The user to owning the `authorized_keys` file. Default is `ec2-user`.
+* `User` (`string`) - Optional; The owner of the `authorized_keys` file. Default is `ec2-user`.
 
 #### Example
 ```toml
@@ -157,3 +157,53 @@ attempt to run it. Default is `false`.
   [Module.UserData]
     ExecuteUserData = true # Execute the userdata
 ```
+
+### System Configuration
+The `SystemConfig` module provides a few interfaces for setting system configuration parameters, primarily through 
+the use of `sysctl` and `defaults`.
+
+* `[Module.SystemConfig.Sysctl]` - Optional; Contains the value to be set by `sysctl`.
+    * `value` (`string`) - Required; The value in the form: `"parameter=value"`.
+* `[Module.SystemConfig.Defaults]` - Optional; Contains a parameter and value to be set by `defaults`.
+    * `plist` (`string`) - Required; The plist to containing the parameter to be set.
+    * `parameter` (`string`) - Required; The parameter to be updated.
+    * `type` (`string`) - Required; The type of parameter to be set. Currently, this can only be `"bool"`.
+    * `value` (`string`) - Required; The value to assign to the plist parameter.
+* `secureSSHDConfig` (`bool`) - Optional; Reapply the default SSHD config security settings after an OS update.
+
+#### Example
+```toml
+[[Module]]
+  Name = "System-Configuration"
+  PriorityGroup = 2 # Second group
+  RunPerBoot = true # Run every boot to enforce these parameters
+  FatalOnError = false # Best effort, don't fatal on error
+  [Module.SystemConfig]
+    secureSSHDConfig = true # secure sshd_config on OS update
+    [[Module.SystemConfig.Sysctl]]
+      value = "my.favorite.parameter=42" # use sysctl to set my.favorite.parameter
+    [[Module.SystemConfig.Defaults]]
+      plist = "/Library/Preferences/com.amazon.ec2.plist" # use defaults to set a parameter in this plist
+      parameter = "PlistParameter"
+      type = "bool"
+      value = "false"
+```
+
+## Building
+
+The `build.sh` script has been provided for easy builds.  This script sets build-time variables, gets dependencies, 
+and then builds the binary for `darwin/amd64`.  Once complete, the binary, launchd plist, and `init.toml` configuration 
+file need to be copied to the locations described in the Overview section of this README before testing.
+
+## Contributing
+
+Please feel free to submit issues, fork the repository and send pull requests! 
+See [CONTRIBUTING](CONTRIBUTING.md) for more information.
+
+## Security
+
+See the Security section of [CONTRIBUTING](CONTRIBUTING.md#security-issue-notifications) for more information.
+
+## License
+
+This project is licensed under the Apache-2.0 License.

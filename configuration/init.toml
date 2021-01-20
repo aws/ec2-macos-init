@@ -102,12 +102,13 @@
 
 # Set a random password for ec2-user
 [[Module]]
-    Name = "SetEC2UserPassword"
+    Name = "ManageEC2User"
     PriorityGroup = 2 # Second group
     RunOnce = true # Run only on the first boot
     FatalOnError = true # Must succeed
-    [Module.Command]
-        Cmd = ["/bin/zsh", "-c", "/usr/bin/dscl . -passwd /Users/ec2-user $(openssl rand -base64 18)"] # Set random password
+    [Module.UserManagement]
+        User = "ec2-user" # This user must exist locally in /Users/
+        RandomizePassword = true # default is true
 
 # Set timezone as GMT
 [[Module]]

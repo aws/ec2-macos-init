@@ -10,19 +10,20 @@ import (
 // Module contains a few fields common to all Module types and containers for the configuration of any
 // potential module type.
 type Module struct {
-	Type               string
-	Success            bool
-	Name               string             `toml:"Name"`
-	PriorityGroup      int                `toml:"PriorityGroup"`
-	FatalOnError       bool               `toml:"FatalOnError"`
-	RunOnce            bool               `toml:"RunOnce"`
-	RunPerBoot         bool               `toml:"RunPerBoot"`
-	RunPerInstance     bool               `toml:"RunPerInstance"`
-	CommandModule      CommandModule      `toml:"Command"`
-	SSHKeysModule      SSHKeysModule      `toml:"SSHKeys"`
-	UserDataModule     UserDataModule     `toml:"UserData"`
-	NetworkCheckModule NetworkCheckModule `toml:"NetworkCheck"`
-	SystemConfigModule SystemConfigModule `toml:"SystemConfig"`
+	Type                 string
+	Success              bool
+	Name                 string               `toml:"Name"`
+	PriorityGroup        int                  `toml:"PriorityGroup"`
+	FatalOnError         bool                 `toml:"FatalOnError"`
+	RunOnce              bool                 `toml:"RunOnce"`
+	RunPerBoot           bool                 `toml:"RunPerBoot"`
+	RunPerInstance       bool                 `toml:"RunPerInstance"`
+	CommandModule        CommandModule        `toml:"Command"`
+	SSHKeysModule        SSHKeysModule        `toml:"SSHKeys"`
+	UserDataModule       UserDataModule       `toml:"UserData"`
+	NetworkCheckModule   NetworkCheckModule   `toml:"NetworkCheck"`
+	SystemConfigModule   SystemConfigModule   `toml:"SystemConfig"`
+	UserManagementModule UserManagementModule `toml:"UserManagement"`
 }
 
 // ModuleContext contains fields that may need to be passed to the Do function for modules.
@@ -79,6 +80,10 @@ func (m *Module) identifyModule() (err error) {
 	}
 	if !cmp.Equal(m.SystemConfigModule, SystemConfigModule{}) {
 		m.Type = "systemconfig"
+		return nil
+	}
+	if !cmp.Equal(m.UserManagementModule, UserManagementModule{}) {
+		m.Type = "usermanagement"
 		return nil
 	}
 

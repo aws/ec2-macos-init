@@ -103,6 +103,8 @@ func run(c *ec2macosinit.InitConfig) {
 						message, err = m.NetworkCheckModule.Do(ctx)
 					case "systemconfig":
 						message, err = m.SystemConfigModule.Do(ctx)
+					case "usermanagement":
+						message, err = m.UserManagementModule.Do(ctx)
 					default:
 						message = "unknown module type"
 						err = fmt.Errorf("unknown module type")

@@ -189,6 +189,26 @@ the use of `sysctl` and `defaults`.
       value = "false"
 ```
 
+
+### User Management
+The `UserManagement` module provides the ability to safely randomize an existing user's password. 
+
+* `User` (`string`) - Optional; The user (which must already exist) to manage. Default is `ec2-user`.
+* `RandomizePassword` (`bool`) - Optional; Configures whether the user's password should be randomized 
+  on first boot. Default is `true`.
+  
+#### Example
+```toml
+[[Module]]
+  Name = "ManageEC2User"
+  PriorityGroup = 2 # Second group
+  RunOnce = true # Run only on the first boot
+  FatalOnError = true # Must succeed
+  [Module.UserManagement]
+    User = "ec2-user" # This user must exist locally in /Users/
+    RandomizePassword = true # default is true
+```
+
 ## Building
 
 The `build.sh` script has been provided for easy builds.  This script sets build-time variables, gets dependencies, 

@@ -179,3 +179,18 @@ func retry(attempts int, sleep time.Duration, f func() error) (err error) {
 	}
 	return fmt.Errorf("after %d attempts, last error: %s", attempts, err)
 }
+
+// getOSProductVersion uses the sysctl command to retrieve the product version number from the kernel
+func getOSProductVersion() (version string, err error) {
+	cmdGetProductVersion := []string{"sysctl", "-n", "kern.osproductversion"}
+
+	output, err := executeCommand(cmdGetProductVersion, "", []string{})
+	if err != nil {
+		return version, fmt.Errorf("ec2macosinit: error getting kernel state for product version: %s", err)
+	}
+
+	// Remove any extra space characters from the output to leave only the product version number
+	version = strings.TrimSpace(output.stdout)
+
+	return version, nil
+}

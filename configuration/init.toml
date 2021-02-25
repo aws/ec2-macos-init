@@ -135,8 +135,8 @@
     PriorityGroup = 2 # Second group
     RunPerBoot = true # Run every boot
     FatalOnError = false # Best effort, don't fatal on error
-    [Module.Command]
-        Cmd = ["/bin/zsh", "-c", 'version="$(sysctl -n kern.osproductversion)";sed -i "" "s/macOS.*/macOS $(echo -e "10.14 Mojave\n10.15 Catalina\n11.0 Big Sur" | grep ^$(echo $version | cut -d"." -f1-2)| cut -d" " -f2-) $version/" /etc/motd'] # Update /etc/motd
+    [Module.MOTD]
+        UpdateName = true # Update the macOS version string in /etc/motd with that latest name and os product version number
 
 # Remove SSH group, if it exists
 [[Module]]

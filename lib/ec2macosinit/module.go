@@ -19,6 +19,7 @@ type Module struct {
 	RunPerBoot           bool                 `toml:"RunPerBoot"`
 	RunPerInstance       bool                 `toml:"RunPerInstance"`
 	CommandModule        CommandModule        `toml:"Command"`
+	MOTDModule           MOTDModule           `toml:"MOTD"`
 	SSHKeysModule        SSHKeysModule        `toml:"SSHKeys"`
 	UserDataModule       UserDataModule       `toml:"UserData"`
 	NetworkCheckModule   NetworkCheckModule   `toml:"NetworkCheck"`
@@ -64,6 +65,10 @@ func (m *Module) validateModule() (err error) {
 func (m *Module) identifyModule() (err error) {
 	if !cmp.Equal(m.CommandModule, CommandModule{}) {
 		m.Type = "command"
+		return nil
+	}
+	if !cmp.Equal(m.MOTDModule, MOTDModule{}) {
+		m.Type = "motd"
 		return nil
 	}
 	if !cmp.Equal(m.SSHKeysModule, SSHKeysModule{}) {

@@ -95,6 +95,8 @@ func run(c *ec2macosinit.InitConfig) {
 					switch t := m.Type; t {
 					case "command":
 						message, err = m.CommandModule.Do(ctx)
+					case "motd":
+						message, err = m.MOTDModule.Do(ctx)
 					case "sshkeys":
 						message, err = m.SSHKeysModule.Do(ctx)
 					case "userdata":

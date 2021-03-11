@@ -33,6 +33,15 @@ func (c *UserDataModule) Do(ctx *ModuleContext) (message string, err error) {
 		return "", fmt.Errorf("ec2macosinit: received an unexpected response code from IMDS: %d - %s\n", respCode, err)
 	}
 
+	// Attempt to base64 decode userdata.
+	// This maintains consistency alongside Amazon Linux 2's cloud-init, which states:
+	//     "Some tools and users will base64 encode their data before handing it to
+	//      an API like boto, which will base64 encode it again, so we try to decode."
+	decoded, err := decodeBase64(ud)
+	if err == nil {
+		ud = decoded
+	}
+
 	// Write user data to file
 	userDataFile := path.Join(baseDir, ctx.IMDS.InstanceID, fileName)
 	f, err := os.OpenFile(userDataFile, os.O_CREATE|os.O_WRONLY, 0755)

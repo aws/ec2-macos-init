@@ -2,6 +2,7 @@ package ec2macosinit
 
 import (
 	"bytes"
+	"encoding/base64"
 	"fmt"
 	"io"
 	"os"
@@ -193,4 +194,14 @@ func getOSProductVersion() (version string, err error) {
 	version = strings.TrimSpace(output.stdout)
 
 	return version, nil
+}
+
+// decodeBase64 attempts to decode base64 data and returns the decoded string if successful
+func decodeBase64(base64Data string) (decodedString string, err error) {
+	decodedBytes, err := base64.StdEncoding.DecodeString(base64Data)
+	if err != nil {
+		return "", fmt.Errorf("ec2macosinit: failed to decode base64 string: %s\n", err)
+	}
+
+	return string(decodedBytes), nil
 }

@@ -18,7 +18,7 @@
 	<string>com.amazon.ec2.macos-init</string>
 	<key>ProgramArguments</key>
 	<array>
-		<string>/usr/local/bin/ec2-macos-init</string>
+		<string>/usr/local/libexec/ec2-macos-init</string>
 		<string>run</string>
 	</array>
 	<key>RunAtLoad</key>

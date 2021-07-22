@@ -96,6 +96,12 @@ func (c *InitConfig) WriteHistoryFile() (err error) {
 		return fmt.Errorf("ec2macosinit: unable to write history file: %s\n", err)
 	}
 
+	// Ensure the path exists and create it if it doesn't
+	err = c.CreateDirectories()
+	if err != nil {
+		return fmt.Errorf("ec2macosinit: unable to write history file: :%s\n", err)
+	}
+
 	// Write history JSON file
 	err = ioutil.WriteFile(path.Join(c.HistoryPath, c.IMDS.InstanceID, c.HistoryFilename), historyBytes, 0644)
 	if err != nil {

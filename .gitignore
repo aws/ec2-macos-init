@@ -2,8 +2,6 @@ build
 gen
 bin
 pkg
-go.mod
-go.sum
 *_mock.go
 *gomock*
 *.zip

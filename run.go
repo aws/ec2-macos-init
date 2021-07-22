@@ -112,7 +112,7 @@ func run(c *ec2macosinit.InitConfig) {
 						err = fmt.Errorf("unknown module type")
 					}
 					if err != nil {
-						c.Log.Infof("Error while running module [%s] (type: %s, group: %d): %s\n", m.Name, m.Type, m.PriorityGroup, err)
+						c.Log.Infof("Error while running module [%s] (type: %s, group: %d) with message: %s and err: %s\n", m.Name, m.Type, m.PriorityGroup, message, err)
 						if m.FatalOnError {
 							aggregateFatal = true
 							aggFatalModuleName = m.Name

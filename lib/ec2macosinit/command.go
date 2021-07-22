@@ -16,8 +16,8 @@ type CommandModule struct {
 func (c *CommandModule) Do(ctx *ModuleContext) (message string, err error) {
 	out, err := executeCommand(c.Cmd, c.RunAsUser, c.EnvironmentVars)
 	if err != nil {
-		return "", fmt.Errorf("ec2macosinit: error executing command [%s] with stderr [%s]: %s",
-			c.Cmd, strings.TrimSuffix(out.stderr, "\n"), err)
+		return "", fmt.Errorf("ec2macosinit: error executing command [%s] with stdout [%s] and stderr [%s]: %s",
+			c.Cmd, strings.TrimSuffix(out.stdout, "\n"), strings.TrimSuffix(out.stderr, "\n"), err)
 	}
 	return fmt.Sprintf("successfully ran command [%s] with stdout [%s] and stderr [%s]",
 		c.Cmd, strings.TrimSuffix(out.stdout, "\n"), strings.TrimSuffix(out.stderr, "\n")), nil

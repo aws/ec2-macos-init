@@ -70,7 +70,7 @@ func executeCommand(c []string, runAsUser string, envVars []string) (output comm
 	// Run command
 	err = cmd.Run()
 	if err != nil {
-		return commandOutput{}, err
+		return commandOutput{stdout: stdoutb.String(), stderr: stderrb.String()}, err
 	}
 
 	return commandOutput{stdout: stdoutb.String(), stderr: stderrb.String()}, nil

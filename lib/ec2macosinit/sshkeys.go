@@ -57,10 +57,11 @@ func (c *SSHKeysModule) Do(ctx *ModuleContext) (message string, err error) {
 		if err != nil {
 			return "", fmt.Errorf("ec2macosinit: error getting openSSH key from IMDS: %s\n", err)
 		}
-		if respCode != 200 && respCode != 404 { // 200 = ok; 404 = no key provided
+		if respCode == 200 { // 200 = ok
+			keySet[strings.TrimSpace(imdsKey)] = struct{}{}
+		} else if respCode != 404 { // 404 is the only other allowable response code as it indicates no key was provided - if not 404 error out
 			return "", fmt.Errorf("ec2macosinit: received an unexpected response code from IMDS: %d - %s\n", respCode, err)
 		}
-		keySet[strings.TrimSpace(imdsKey)] = struct{}{}
 	}
 
 	// Add all unique provided static keys
@@ -89,6 +90,11 @@ func (c *SSHKeysModule) Do(ctx *ModuleContext) (message string, err error) {
 
 		// Set OverwriteAuthorizedKeys to true so that duplicate keys are overwritten
 		c.OverwriteAuthorizedKeys = true
+	}
+
+	// Check if there's anything else to do
+	if len(keySet) == 0 && !c.OverwriteAuthorizedKeys {
+		return "no keys found and not overwriting authorized_keys", nil
 	}
 
 	// Add all keys to a slice

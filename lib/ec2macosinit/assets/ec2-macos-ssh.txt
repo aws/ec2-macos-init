@@ -1,0 +1,3 @@
+UsePAM no
+ChallengeResponseAuthentication no
+PasswordAuthentication no

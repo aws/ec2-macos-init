@@ -2,6 +2,7 @@ package ec2macosinit
 
 import (
 	"bufio"
+	_ "embed"
 	"fmt"
 	"io/ioutil"
 	"log"
@@ -18,8 +19,6 @@ const (
 	ConfigurationManagementWarning = "### This file is managed by EC2 macOS Init, changes will be applied on every boot. To disable set secureSSHDConfig = false in /usr/local/aws/ec2-macos-init/init.toml ###"
 	// InlineWarning is a warning line for each entry to help encourage users to avoid doing the risky configuration change
 	InlineWarning = "# EC2 Configuration: The follow setting is recommended by EC2 and set on boot. Set secureSSHDConfig = false in /usr/local/aws/ec2-macos-init/init.toml to disable.\n"
-	// SSHDConfigFile is the default path for the SSHD configuration file
-	SSHDConfigFile = "/etc/ssh/sshd_config"
 	// DefaultsCmd is the path to the script edit macOS defaults
 	DefaultsCmd = "/usr/bin/defaults"
 	// DefaultsRead is the command to read from a plist
@@ -28,6 +27,20 @@ const (
 	DefaultsReadType = "read-type"
 	// DefaultsWrite is the command to write a value of a parameter to a plist
 	DefaultsWrite = "write"
+	// sshdConfigFile is the default path for the SSHD configuration file
+	sshdConfigFile = "/etc/ssh/sshd_config"
+	// ec2SSHDConfigFile is the ssh configs file path
+	ec2SSHDConfigFile = "/etc/ssh/sshd_config.d/050-ec2-macos.conf"
+	// macOSSSHDConfigDir is Apple's custom ssh configs
+	macOSSSHDConfigDir = "/etc/ssh/sshd_config.d"
+)
+
+//go:embed assets/ec2-macos-ssh.txt
+var ec2SSHData string
+
+var (
+	// numberOfBytesInCustomSSHFile is the number of bytes in assets/ec2-macos-ssh.txt
+	numberOfBytesInCustomSSHFile = len(ec2SSHData)
 )
 
 // ModifySysctl contains sysctl values we want to modify
@@ -58,6 +71,14 @@ func (c *SystemConfigModule) Do(ctx *ModuleContext) (message string, err error) 
 	// Secure SSHD configuration
 	var sshdConfigChanges, sshdUnchanged, sshdErrors int32
 	if c.SecureSSHDConfig {
+		wg.Add(1)
+		go func() {
+			err := writeEC2SSHConfigs()
+			if err != nil {
+				ctx.Logger.Errorf("Error writing ec2 custom ssh configs: %s", err)
+			}
+			wg.Done()
+		}()
 		wg.Add(1)
 		go func() {
 			changes, err := c.configureSSHD(ctx)
@@ -133,6 +154,27 @@ func (c *SystemConfigModule) Do(ctx *ModuleContext) (message string, err error) 
 	}
 
 	return "system configuration completed with " + baseMessage, nil
+}
+
+// writeEC2SSHConfigs writes custom ec2 ssh configs file
+func writeEC2SSHConfigs() (err error) {
+	err = os.MkdirAll(macOSSSHDConfigDir, 0755)
+	if err != nil {
+		return fmt.Errorf("error while attempting to create %s dir: %s", macOSSSHDConfigDir, err)
+	}
+	f, err := os.OpenFile(ec2SSHDConfigFile, os.O_RDWR|os.O_CREATE|os.O_TRUNC, 0644)
+	if err != nil {
+		return fmt.Errorf("error while attempting to create %s file: %s", ec2SSHDConfigFile, err)
+	}
+	defer f.Close()
+	n, err := f.WriteString(ec2SSHData)
+	if err != nil {
+		return fmt.Errorf("error while writing ec2-macos ssh data on file: %s. %s", ec2SSHDConfigFile, err)
+	}
+	if n != numberOfBytesInCustomSSHFile {
+		return fmt.Errorf("error while writing ec2-macos ssh data on file: %s. %d should equal %d", ec2SSHDConfigFile, n, numberOfBytesInCustomSSHFile)
+	}
+	return nil
 }
 
 // modifySysctl modifies a sysctl parameter, if necessary.
@@ -294,7 +336,7 @@ func checkAndWriteWarning(lastLine string, tempSSHDFile *os.File) (err error) {
 // it replaces the SSHConfigFile. If SSHD is detected as running, it restarts it.
 func (c *SystemConfigModule) configureSSHD(ctx *ModuleContext) (configChanges bool, err error) {
 	// Look for each thing and fix them if found
-	sshdFile, err := os.Open(SSHDConfigFile)
+	sshdFile, err := os.Open(sshdConfigFile)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -388,7 +430,7 @@ func (c *SystemConfigModule) configureSSHD(ctx *ModuleContext) (configChanges bo
 		lastLine = currentLine
 	}
 	if err := scanner.Err(); err != nil {
-		return false, fmt.Errorf("ec2macosinit: error reading %s: %s", SSHDConfigFile, err)
+		return false, fmt.Errorf("ec2macosinit: error reading %s: %s", sshdConfigFile, err)
 	}
 
 	// If there was a change detected, then copy the file and restart sshd
@@ -400,14 +442,14 @@ func (c *SystemConfigModule) configureSSHD(ctx *ModuleContext) (configChanges bo
 		}
 
 		// Move the temporary file to the SSHDConfigFile
-		err = os.Rename(tempSSHDFile.Name(), SSHDConfigFile)
+		err = os.Rename(tempSSHDFile.Name(), sshdConfigFile)
 		if err != nil {
-			return false, fmt.Errorf("ec2macosinit: unable to save updated configuration to %s", SSHDConfigFile)
+			return false, fmt.Errorf("ec2macosinit: unable to save updated configuration to %s", sshdConfigFile)
 		}
 		// Temporary files have different permissions by design, correct the permissions for SSHDConfigFile
-		err = os.Chmod(SSHDConfigFile, 0644)
+		err = os.Chmod(sshdConfigFile, 0644)
 		if err != nil {
-			return false, fmt.Errorf("ec2macosinit: unable to set correct permssions of %s", SSHDConfigFile)
+			return false, fmt.Errorf("ec2macosinit: unable to set correct permssions of %s", sshdConfigFile)
 		}
 		// If SSHD was detected as running, then a restart must happen, if it was not running, the work is complete
 		if sshdRunning {

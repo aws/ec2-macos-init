@@ -78,6 +78,8 @@ func getVersionName(osProductVersion string) (versionName string) {
 		versionName = "Catalina"
 	case strings.HasPrefix(osProductVersion, "11"):
 		versionName = "Big Sur"
+	case strings.HasPrefix(osProductVersion, "12"):
+		versionName = "Monterey"
 	}
 
 	return versionName

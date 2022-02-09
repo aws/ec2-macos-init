@@ -15,19 +15,40 @@
 
 
 ### Group 1 ###
+## Making sure unnecessary resources are disabled
+
+# Disable Ethernet
+[[Module]]
+    Name = "DisableEthernet"
+    PriorityGroup = 1 # First group
+    RunPerBoot = true # Run every boot
+    FatalOnError = true # Fatal if there's an error - this must succeed
+    [Module.Command]
+        Cmd = ["/usr/sbin/networksetup", "-setnetworkserviceenabled", "Ethernet", "off"]
+
+# Unmount Local SSD
+[[Module]]
+    Name = "UnmountLocalSSD"
+    PriorityGroup = 1 # First group
+    RunPerBoot = true # Run every boot
+    FatalOnError = false # Best effort, don't fatal on error
+    [Module.Command]
+        Cmd = ["/bin/zsh", "-c", "diskutil list internal physical | egrep -o '^/dev/disk\\d+' | xargs diskutil eject || true"]
+
+### Group 2 ###
 ## The only task in the first group is to make sure the network is up.  Some of the subsequent actions require
 ## a connection to IMDS and will fail if this check doesn't pass.
 
 # Checks that the network is up
 [[Module]]
     Name = "CheckNetworkIsUp"
-    PriorityGroup = 1 # First group
+    PriorityGroup = 2 # Second group
     RunPerBoot = true # Run every boot
     FatalOnError = true # Fatal if there's an error - this must succeed
     [Module.NetworkCheck]
         PingCount = 3 # Three attempts
 
-### Group 2 ###
+### Group 3 ###
 ## The second group has many actions that can be run in parallel including:
 ##   1. Optimize kernel and networking parameters
 ##   2. Disable auto-update
@@ -42,7 +63,7 @@
 # These kernel and networking parameters are suggested by EC2 for optimal instance performance.
 [[Module]]
     Name = "EC2SuggestedDefaultConfigPerformance"
-    PriorityGroup = 2 # Second group
+    PriorityGroup = 3 # Third group
     RunPerBoot = true # Run every boot to enforce these parameters
     FatalOnError = false # Best effort, don't fatal on error
     [Module.SystemConfig]
@@ -94,7 +115,7 @@
 # To manage ssh_config separately, disable this module
 [[Module]]
     Name = "EC2SuggestedDefaultConfigSecurity"
-    PriorityGroup = 2 # Second group
+    PriorityGroup = 3 # Third group
     RunPerBoot = true # Run every boot to enforce these parameters
     FatalOnError = true # Security settings, must succeed
     [Module.SystemConfig]
@@ -103,7 +124,7 @@
 # Set a random password for ec2-user
 [[Module]]
     Name = "ManageEC2User"
-    PriorityGroup = 2 # Second group
+    PriorityGroup = 3 # Third group
     RunOnce = true # Run only on the first boot
     FatalOnError = true # Must succeed
     [Module.UserManagement]
@@ -113,7 +134,7 @@
 # Set timezone as GMT
 [[Module]]
     Name = "SetDefaultTimezone"
-    PriorityGroup = 2 # Second group
+    PriorityGroup = 3 # Third group
     RunOnce = true # Run only on the first boot
     FatalOnError = false # Best effort, don't fatal on error
     [Module.Command]
@@ -123,16 +144,25 @@
 # 169.254.169.123 is the address for Amazon Time Sync in all regions
 [[Module]]
     Name = "SetAmazonTimeSync"
-    PriorityGroup = 2 # Second group
+    PriorityGroup = 3 # Third group
     RunOnce = true # Run only on the first boot
     FatalOnError = false # Best effort, don't fatal on error
     [Module.Command]
         Cmd = ["systemsetup", "-setusingnetworktime", "on", "-setnetworktimeserver", "169.254.169.123"] # Use systemsetup to set property
 
+# Disable sleep
+[[Module]]
+    Name = "NeverSleep"
+    PriorityGroup = 3 # Third group
+    RunOnce = true # Run only on the first boot
+    FatalOnError = false # Best effort, don't fatal on error
+    [Module.Command]
+        Cmd = ["systemsetup", "-setsleep", "Never"] # Use systemsetup to set property
+
 # Update MOTD to contain the current OS version and name
 [[Module]]
     Name = "UpdateMOTD"
-    PriorityGroup = 2 # Second group
+    PriorityGroup = 3 # Third group
     RunPerBoot = true # Run every boot
     FatalOnError = false # Best effort, don't fatal on error
     [Module.MOTD]
@@ -141,7 +171,7 @@
 # Remove SSH group, if it exists
 [[Module]]
     Name = "RemoveSSHGroup"
-    PriorityGroup = 2 # Second group
+    PriorityGroup = 3 # Third group
     RunOnce = true # Run only on the first boot
     FatalOnError = false # Best effort, don't fatal on error
     [Module.Command]
@@ -150,19 +180,19 @@
 # Disable WiFi
 [[Module]]
     Name = "DisableWiFi"
-    PriorityGroup = 2 # Second group
+    PriorityGroup = 3 # Third group
     RunPerBoot = true # Run every boot
     FatalOnError = false # Best effort, don't fatal on error
     [Module.Command]
         Cmd = ["/bin/zsh", "-c", 'wifidevice="$(networksetup -listallhardwareports | grep -A 1 "Wi-Fi" | tail -n 1 | cut -d " " -f2)"; if [[ ! -z $wifidevice ]]; then networksetup -setairportpower $wifidevice off; fi'] # Turn off wifi device
 
-### Group 3 ###
+### Group 4 ###
 ## This group gets keys from IMDS and allows ssh access to the instance.
 
 # Get SSH keys from IMDS
 [[Module]]
     Name = "GetSSHKeys"
-    PriorityGroup = 3 # Third group
+    PriorityGroup = 4 # Fourth group
     FatalOnError = true # Exit on failure - this is required to log in.
     RunPerInstance = true # Run only once per instance
     [Module.SSHKeys]
@@ -171,13 +201,13 @@
         DedupKeys = true # Remove duplicate keys
         OverwriteAuthorizedKeys = false # Append to authorized_keys to avoid erasing any additional keys on future instances
 
-### Group 4 ###
+### Group 5 ###
 ## Finally, run user data.
 
 # Attempt to execute userdata, if provided
 [[Module]]
     Name = "ExecuteUserData"
-    PriorityGroup = 4 # Fourth group
+    PriorityGroup = 5 # Fifth group
     RunPerInstance = true # Run once per instance
     FatalOnError = false # Best effort, don't fatal on error
     [Module.UserData]

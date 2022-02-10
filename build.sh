@@ -12,6 +12,10 @@ echo -e "Version: ${VERSION}"
 
 # Build for darwin/amd64
 echo "Running go build..."
-GOOS=darwin GOARCH=amd64 CGO_ENABLED=0 go build -trimpath -ldflags="-s -w -X 'main.CommitDate=${COMMITDATE}' -X 'main.Version=${VERSION}'"
+
+for arch in amd64 arm64; do
+    GOOS=darwin GOARCH="$arch" CGO_ENABLED=0 go build -trimpath -ldflags="-s -w -X 'main.CommitDate=${COMMITDATE}' -X 'main.Version=${VERSION}'" -o "ec2-macos-init_$arch"
+done
+lipo -create -output ec2-macos-init ec2-macos-init_amd64 ec2-macos-init_arm64
 
 echo "Build complete"

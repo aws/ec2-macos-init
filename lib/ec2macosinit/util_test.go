@@ -2,11 +2,12 @@ package ec2macosinit
 
 import (
 	"fmt"
-	"github.com/stretchr/testify/assert"
 	"io/ioutil"
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/stretchr/testify/assert"
 )
 
 func Test_ioReadCloserToString(t *testing.T) {

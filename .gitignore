@@ -10,3 +10,4 @@ pkg
 .DS_Store
 commitdate.txt
 version.txt
+ec2-macos-init*

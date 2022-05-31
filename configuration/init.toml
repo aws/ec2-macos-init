@@ -157,7 +157,23 @@
     RunOnce = true # Run only on the first boot
     FatalOnError = false # Best effort, don't fatal on error
     [Module.Command]
-        Cmd = ["systemsetup", "-setsleep", "Never"] # Use systemsetup to set property
+        Cmd = ["sudo", "pmset", "-a", "sleep", "0"]
+
+[[Module]]
+    Name = "NeverSleepDisplay"
+    PriorityGroup = 3 # Third group
+    RunOnce = true # Run only on the first boot
+    FatalOnError = false # Best effort, don't fatal on error
+    [Module.Command]
+        Cmd = ["sudo", "pmset", "-a", "displaysleep", "0"]
+
+[[Module]]
+    Name = "DisableSleep"
+    PriorityGroup = 3 # Third group
+    RunOnce = true # Run only on the first boot
+    FatalOnError = false # Best effort, don't fatal on error
+    [Module.Command]
+        Cmd = ["sudo", "pmset", "-a", "disablesleep", "1"]
 
 # Update MOTD to contain the current OS version and name
 [[Module]]

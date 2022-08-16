@@ -4,11 +4,11 @@ set -euo pipefail
 log() { echo "> $*" >&2; }
 
 if ! hash lipo 2>/dev/null; then
-    log "unable to build universal binary without 'lipo' (macOS only)"
+    log "Unable to build universal binary without 'lipo' (macOS only)."
     exit 1
 fi
 
-log "building EC2 macOS Init..."
+log "Building EC2 macOS Init..."
 
 # Get commit date and version tag
 COMMITDATE="$(git show -s --format=%ci HEAD)"
@@ -18,7 +18,7 @@ log "Commit date: ${COMMITDATE}"
 log "Version: ${VERSION}"
 
 for arch in amd64 arm64; do
-    log "building for darwin/$arch"
+    log "Building for darwin/$arch"
     GOOS=darwin GOARCH="$arch" CGO_ENABLED=0 \
         go build -trimpath \
         -ldflags="-s -w -X 'main.CommitDate=${COMMITDATE}' -X 'main.Version=${VERSION}'" \

@@ -29,7 +29,7 @@ func (c *MOTDModule) Do(ctx *ModuleContext) (message string, err error) {
 	// Create regex pattern to be replaced in the motd file
 	motdMacOSExpression, err := regexp.Compile("macOS.*")
 	if err != nil {
-		return "", fmt.Errorf("macosinit: error compiling motd regex pattern: %s", err)
+		return "", fmt.Errorf("ec2macosinit: error compiling motd regex pattern: %s", err)
 	}
 
 	// Get the os product version number
@@ -61,7 +61,7 @@ func (c *MOTDModule) Do(ctx *ModuleContext) (message string, err error) {
 	// Write the updated contents back to the motd file
 	err = ioutil.WriteFile(motdFile, replacedContents, 0644)
 	if err != nil {
-		return "", fmt.Errorf("macosinit: error writing updated motd back to file: %s", err)
+		return "", fmt.Errorf("ec2macosinit: error writing updated motd back to file: %s", err)
 	}
 
 	return fmt.Sprintf("successfully updated motd file [%s] with version string [%s]", motdFile, motdString), nil
@@ -80,6 +80,8 @@ func getVersionName(osProductVersion string) (versionName string) {
 		versionName = "Big Sur"
 	case strings.HasPrefix(osProductVersion, "12"):
 		versionName = "Monterey"
+	case strings.HasPrefix(osProductVersion, "13"):
+		versionName = "Ventura"
 	}
 
 	return versionName

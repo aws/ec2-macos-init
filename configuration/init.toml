@@ -17,15 +17,6 @@
 ### Group 1 ###
 ## Making sure unnecessary resources are disabled
 
-# Disable Ethernet
-[[Module]]
-    Name = "DisableEthernet"
-    PriorityGroup = 1 # First group
-    RunPerBoot = true # Run every boot
-    FatalOnError = true # Fatal if there's an error - this must succeed
-    [Module.Command]
-        Cmd = ["/usr/sbin/networksetup", "-setnetworkserviceenabled", "Ethernet", "off"]
-
 # Unmount Local SSD
 [[Module]]
     Name = "UnmountLocalSSD"

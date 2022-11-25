@@ -39,7 +39,16 @@ func (c *InitConfig) GetInstanceHistory() (err error) {
 	for _, dir := range dirs {
 		if dir.IsDir() {
 			historyFile := filepath.Join(c.HistoryPath, dir.Name(), c.HistoryFilename)
-			if _, err := os.Stat(historyFile); err == nil {
+			if info, err := os.Stat(historyFile); err == nil {
+				// Check to make sure info is a file and not a directory.
+				if !info.Mode().IsRegular() {
+					continue
+				}
+				// If there is an error getting the history file or if the history file is empty do not append to Instance History
+				if info.Size() == 0 {
+					c.Log.Warnf("The history file exists at %s but is empty. Skipping this file...", historyFile)
+					continue
+				}
 				history, err := readHistoryFile(historyFile)
 				if err != nil {
 					return fmt.Errorf("ec2macosinit: error while reading history file at %s: %w", historyFile, err)

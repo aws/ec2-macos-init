@@ -4,7 +4,7 @@ import (
 	"bufio"
 	"fmt"
 	"os"
-	"path"
+	"path/filepath"
 	"strings"
 )
 
@@ -40,8 +40,8 @@ func (c *SSHKeysModule) Do(ctx *ModuleContext) (message string, err error) {
 	}
 
 	// Set directory and authorized_keys file
-	authorizedKeysDir := path.Join("/Users", c.User, ".ssh")
-	authorizedKeysFile := path.Join(authorizedKeysDir, "authorized_keys")
+	authorizedKeysDir := filepath.Join("/Users", c.User, ".ssh")
+	authorizedKeysFile := filepath.Join(authorizedKeysDir, "authorized_keys")
 	if _, err := os.Stat(authorizedKeysDir); os.IsNotExist(err) { // If directory doesn't exist, create it
 		err := os.MkdirAll(authorizedKeysDir, 0700)
 		if err != nil {

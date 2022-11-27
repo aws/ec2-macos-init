@@ -2,7 +2,7 @@ package main
 
 import (
 	"fmt"
-	"path"
+	"path/filepath"
 	"sync"
 	"time"
 
@@ -34,7 +34,7 @@ func run(c *ec2macosinit.InitConfig) {
 
 	// Read init config
 	c.Log.Info("Reading init config...")
-	err = c.ReadConfig(path.Join(baseDir, configFile))
+	err = c.ReadConfig(filepath.Join(baseDir, configFile))
 	if err != nil {
 		c.Log.Fatalf(computeExitCode(c, 66), "Error while reading init config file: %s", err)
 	}

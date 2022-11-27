@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"os"
-	"path"
+	"path/filepath"
 	"time"
 )
 
@@ -38,7 +38,7 @@ func (c *InitConfig) GetInstanceHistory() (err error) {
 	// For each directory, check for a history file and call readHistoryFile()
 	for _, dir := range dirs {
 		if dir.IsDir() {
-			historyFile := path.Join(c.HistoryPath, dir.Name(), c.HistoryFilename)
+			historyFile := filepath.Join(c.HistoryPath, dir.Name(), c.HistoryFilename)
 			if _, err := os.Stat(historyFile); err == nil {
 				history, err := readHistoryFile(historyFile)
 				if err != nil {
@@ -103,7 +103,7 @@ func (c *InitConfig) WriteHistoryFile() (err error) {
 	}
 
 	// Write history JSON file
-	err = ioutil.WriteFile(path.Join(c.HistoryPath, c.IMDS.InstanceID, c.HistoryFilename), historyBytes, 0644)
+	err = ioutil.WriteFile(filepath.Join(c.HistoryPath, c.IMDS.InstanceID, c.HistoryFilename), historyBytes, 0644)
 	if err != nil {
 		return fmt.Errorf("ec2macosinit: unable to write history file: %s\n", err)
 	}
@@ -113,8 +113,8 @@ func (c *InitConfig) WriteHistoryFile() (err error) {
 
 // CreateDirectories creates the instance directory, if it doesn't exist and a directory for the running instance.
 func (c *InitConfig) CreateDirectories() (err error) {
-	if _, err := os.Stat(path.Join(c.HistoryPath, c.IMDS.InstanceID)); os.IsNotExist(err) {
-		err := os.MkdirAll(path.Join(c.HistoryPath, c.IMDS.InstanceID), 0755)
+	if _, err := os.Stat(filepath.Join(c.HistoryPath, c.IMDS.InstanceID)); os.IsNotExist(err) {
+		err := os.MkdirAll(filepath.Join(c.HistoryPath, c.IMDS.InstanceID), 0755)
 		if err != nil {
 			return fmt.Errorf("ec2macosinit: unable to create directory: %s\n", err)
 		}

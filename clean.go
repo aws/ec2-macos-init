@@ -4,7 +4,7 @@ import (
 	"flag"
 	"io/ioutil"
 	"os"
-	"path"
+	"path/filepath"
 
 	"github.com/aws/ec2-macos-init/lib/ec2macosinit"
 )
@@ -24,7 +24,7 @@ func clean(c *ec2macosinit.InitConfig) {
 	}
 
 	// Clean all or clean the current instance
-	historyPath := path.Join(baseDir, instanceHistoryDir)
+	historyPath := filepath.Join(baseDir, instanceHistoryDir)
 	if *cleanAll {
 		c.Log.Info("Removing all instance history")
 		// Read instance history directory
@@ -34,7 +34,7 @@ func clean(c *ec2macosinit.InitConfig) {
 		}
 		for _, d := range dir {
 			// Remove everything
-			err := os.RemoveAll(path.Join([]string{historyPath, d.Name()}...))
+			err := os.RemoveAll(filepath.Join([]string{historyPath, d.Name()}...))
 			if err != nil {
 				c.Log.Fatalf(1, "Unable to remove instance history: %s", err)
 			}
@@ -49,7 +49,7 @@ func clean(c *ec2macosinit.InitConfig) {
 		c.Log.Infof("Removing history for the current instance [%s]", c.IMDS.InstanceID)
 
 		// Remove current instance history
-		err := os.RemoveAll(path.Join(historyPath, c.IMDS.InstanceID))
+		err := os.RemoveAll(filepath.Join(historyPath, c.IMDS.InstanceID))
 		if err != nil {
 			c.Log.Fatalf(1, "Unable to remove instance history: %s", err)
 		}

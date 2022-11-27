@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"net/http"
 	"os"
-	"path"
+	"path/filepath"
 	"strings"
 )
 
@@ -43,7 +43,7 @@ func (c *UserDataModule) Do(ctx *ModuleContext) (message string, err error) {
 	}
 
 	// Write user data to file
-	userDataFile := path.Join(baseDir, ctx.IMDS.InstanceID, fileName)
+	userDataFile := filepath.Join(baseDir, ctx.IMDS.InstanceID, fileName)
 	f, err := os.OpenFile(userDataFile, os.O_CREATE|os.O_WRONLY, 0755)
 	if err != nil {
 		return "", fmt.Errorf("ec2macosinit: error while opening user data file: %s\n", err)

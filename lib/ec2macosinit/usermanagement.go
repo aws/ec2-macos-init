@@ -4,7 +4,7 @@ import (
 	"crypto/rand"
 	"encoding/base64"
 	"fmt"
-	"path"
+	"path/filepath"
 	"strings"
 )
 
@@ -62,7 +62,7 @@ func (c *UserManagementModule) isSecureTokenSet() (enabled bool, err error) {
 // This is the command used to avoid setting the SecureToken when changing the password
 //     /usr/bin/dscl . append /Users/ec2-user AuthenticationAuthority ";DisabledTags;SecureToken"
 func (c *UserManagementModule) disableSecureTokenCreation() (err error) {
-	_, err = executeCommand([]string{DsclPath, ".", "append", path.Join("Users", c.User), "AuthenticationAuthority", ";DisabledTags;SecureToken"}, "", []string{})
+	_, err = executeCommand([]string{DsclPath, ".", "append", filepath.Join("Users", c.User), "AuthenticationAuthority", ";DisabledTags;SecureToken"}, "", []string{})
 	if err != nil {
 		return fmt.Errorf("ec2macosinit: failed disable Secure Token creation: %s", err)
 	}
@@ -74,7 +74,7 @@ func (c *UserManagementModule) disableSecureTokenCreation() (err error) {
 // This is the command used to remove the setting for the SecureToken when changing the password
 //     /usr/bin/dscl . delete /Users/ec2-user AuthenticationAuthority ";DisabledTags;SecureToken"
 func (c *UserManagementModule) enableSecureTokenCreation() (err error) {
-	_, err = executeCommand([]string{DsclPath, ".", "delete", path.Join("Users", c.User), "AuthenticationAuthority", ";DisabledTags;SecureToken"}, "", []string{})
+	_, err = executeCommand([]string{DsclPath, ".", "delete", filepath.Join("Users", c.User), "AuthenticationAuthority", ";DisabledTags;SecureToken"}, "", []string{})
 	if err != nil {
 		return fmt.Errorf("ec2macosinit: failed to disable Secure Token creation: %s", err)
 	}
@@ -83,7 +83,7 @@ func (c *UserManagementModule) enableSecureTokenCreation() (err error) {
 
 // changePassword changes the password to a provided string.
 func (c *UserManagementModule) changePassword(password string) (err error) {
-	_, err = executeCommand([]string{DsclPath, ".", "-passwd", path.Join("Users", c.User), password}, "", []string{})
+	_, err = executeCommand([]string{DsclPath, ".", "-passwd", filepath.Join("Users", c.User), password}, "", []string{})
 	if err != nil {
 		return fmt.Errorf("ec2macosinit: failed to set %s's password: %s", c.User, err)
 	}

@@ -34,7 +34,7 @@ func clean(c *ec2macosinit.InitConfig) {
 		}
 		for _, d := range dir {
 			// Remove everything
-			err := os.RemoveAll(filepath.Join([]string{historyPath, d.Name()}...))
+			err := os.RemoveAll(filepath.Join(historyPath, d.Name()))
 			if err != nil {
 				c.Log.Fatalf(1, "Unable to remove instance history: %s", err)
 			}

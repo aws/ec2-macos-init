@@ -1,6 +1,7 @@
 package main
 
 import (
+	"errors"
 	"fmt"
 	"path/filepath"
 	"sync"
@@ -10,15 +11,15 @@ import (
 )
 
 // run is the main runner for ec2-macOS-init.  It handles orchestration of the following major pieces:
-//   1. Setup instance ID - IMDS must be up and provide an instance ID for later parts of run to work.
-//   2. Read init config - Read the init.toml configuration file into the application.
-//   3. Validate init config and identify modules - The config then undergoes basic validation and modules are identified.
-//   4. Prioritize modules - Modules are sorted by priority into a 2D slice of modules to be run in the correct order later.
-//   5. Read instance run history - The history of prior runs is read into the application for comparison of Run type settings.
-//   6. Process each module by priority level - All modules are run in priority groups. Each module in a priority level
-//      is started in its own goroutine and the group waits for everything in that group to finish. If any module in that
-//      group fails and has FatalOnError set, the entire application exits early.
-//   7. Write history file - After any run, a history.json file is written to the instance history directory for future runs.
+//  1. Setup instance ID - IMDS must be up and provide an instance ID for later parts of run to work.
+//  2. Read init config - Read the init.toml configuration file into the application.
+//  3. Validate init config and identify modules - The config then undergoes basic validation and modules are identified.
+//  4. Prioritize modules - Modules are sorted by priority into a 2D slice of modules to be run in the correct order later.
+//  5. Read instance run history - The history of prior runs is read into the application for comparison of Run type settings.
+//  6. Process each module by priority level - All modules are run in priority groups. Each module in a priority level
+//     is started in its own goroutine and the group waits for everything in that group to finish. If any module in that
+//     group fails and has FatalOnError set, the entire application exits early.
+//  7. Write history file - After any run, a history.json file is written to the instance history directory for future runs.
 func run(c *ec2macosinit.InitConfig) {
 
 	c.Log.Info("Fetching instance ID from IMDS...")
@@ -68,6 +69,14 @@ func run(c *ec2macosinit.InitConfig) {
 	c.Log.Info("Getting instance history...")
 	err = c.GetInstanceHistory()
 	if err != nil {
+		var herr ec2macosinit.HistoryError
+		// If GetInstanceHistory() returns a HistoryError, there was invalid JSON in the history file
+		// Catch this specific error to inform the user of the error and provide a way to remediate it.
+		if errors.As(err, &herr) {
+			c.Log.Warn("There was an error getting instance history")
+			c.Log.Info("The history JSON files might be invalid and need to be restored or removed.")
+			c.Log.Info("Run 'sudo ec2-macos-init clean' to remove all history files.")
+		}
 		c.Log.Fatalf(computeExitCode(c, 1), "Error getting instance history: %s", err)
 	}
 	c.Log.Info("Successfully gathered instance history")

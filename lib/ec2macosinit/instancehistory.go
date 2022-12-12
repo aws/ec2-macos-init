@@ -26,6 +26,22 @@ type ModuleHistory struct {
 	Success bool   `json:"success"`
 }
 
+// HistoryError wraps a normal error and gives the caller insight into the type of error.
+// The caller can check the type of error and handle different types of error differently.
+// Currently HistoryError only handles errors for invalid JSON but the struct is flexible
+// and can be adjusted to handle several different errors differently.
+type HistoryError struct {
+	err error
+}
+
+func (h HistoryError) Unwrap() error {
+	return h.err
+}
+
+func (h HistoryError) Error() string {
+	return h.err.Error()
+}
+
 // GetInstanceHistory takes a path to instance history directory and a file name for history files and searches for
 // any files that match. Then, for each file, it calls readHistoryFile() to read the file and add it to the
 // InstanceHistory struct.
@@ -73,7 +89,7 @@ func readHistoryFile(file string) (history History, err error) {
 	// Unmarshal to struct
 	err = json.Unmarshal(historyBytes, &history)
 	if err != nil {
-		return History{}, fmt.Errorf("ec2macosinit: error unmarshaling history from JSON: %w", err)
+		return History{}, HistoryError{err: err}
 	}
 
 	return history, nil

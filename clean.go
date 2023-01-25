@@ -6,13 +6,14 @@ import (
 	"os"
 	"path/filepath"
 
+	"github.com/aws/ec2-macos-init/internal/paths"
 	"github.com/aws/ec2-macos-init/lib/ec2macosinit"
 )
 
 // clean removes old instance history. It has two options:
 // current - This is the option when -all isn't provided. It only removes the current instance's history.
 // all - When -all is provided, all instance history is removed.
-func clean(c *ec2macosinit.InitConfig) {
+func clean(baseDir string, c *ec2macosinit.InitConfig) {
 	// Define flags
 	cleanFlags := flag.NewFlagSet("clean", flag.ExitOnError)
 	cleanAll := cleanFlags.Bool("all", false, "Optional; Remove all instance history.  Default is false.")
@@ -24,7 +25,7 @@ func clean(c *ec2macosinit.InitConfig) {
 	}
 
 	// Clean all or clean the current instance
-	historyPath := filepath.Join(baseDir, instanceHistoryDir)
+	historyPath := paths.AllInstancesHistory(baseDir)
 	if *cleanAll {
 		c.Log.Info("Removing all instance history")
 		// Read instance history directory
@@ -49,7 +50,7 @@ func clean(c *ec2macosinit.InitConfig) {
 		c.Log.Infof("Removing history for the current instance [%s]", c.IMDS.InstanceID)
 
 		// Remove current instance history
-		err := os.RemoveAll(filepath.Join(historyPath, c.IMDS.InstanceID))
+		err := os.RemoveAll(paths.InstanceHistory(baseDir, c.IMDS.InstanceID))
 		if err != nil {
 			c.Log.Fatalf(1, "Unable to remove instance history: %s", err)
 		}

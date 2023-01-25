@@ -3,7 +3,9 @@ package ec2macosinit
 import (
 	"fmt"
 	"strconv"
+	"strings"
 
+	"github.com/aws/ec2-macos-init/internal/paths"
 	"github.com/google/go-cmp/cmp"
 )
 
@@ -29,13 +31,27 @@ type Module struct {
 
 // ModuleContext contains fields that may need to be passed to the Do function for modules.
 type ModuleContext struct {
-	Logger *Logger
-	IMDS   *IMDSConfig
+	Logger        *Logger
+	IMDS          *IMDSConfig
+	BaseDirectory string
+}
+
+// InstanceHistoryPath provides the history storage path for the current
+// instance.
+func (m ModuleContext) InstanceHistoryPath() string {
+	if m.IMDS == nil || strings.TrimSpace(m.IMDS.InstanceID) == "" {
+		// do *not* allow callers of this method to continue program run as
+		// operation without this data may cause history to be lost and
+		// subsequent ec2-macos-init runs to operate inappropriately.
+		panic("no instance-id available")
+	}
+
+	return paths.InstanceHistory(m.BaseDirectory, m.IMDS.InstanceID)
 }
 
 // validateModule performs the following checks:
-//   1. Check that there is exactly one Run type set
-//   2. Check that Priority is set and is not less than 1
+//  1. Check that there is exactly one Run type set
+//  2. Check that Priority is set and is not less than 1
 func (m *Module) validateModule() (err error) {
 	// Check that there is exactly one Run type set
 	var runs int8
@@ -113,13 +129,13 @@ func (m *Module) generateHistoryKey() (key string) {
 }
 
 // ShouldRun determines if a module should be run, given a current instance ID and history. There are three cases:
-// 1. RunPerBoot - The module should run every boot, no matter what. The simplest case.
-// 2. RunPerInstance - The module should run once on every instance. Here we must look for the current instance ID
-//    in the instance history and if found, compare the current module's key with all successfully run keys. If
-//    not found, run the module. If found and unsuccessful, run the module. If found and successful, skip.
-// 3. RunOnce - The module should run once, ever. The process here is similar to RunPerInstance except the key must
-//    be searched for in every instance history. If not found, run the module. If found and unsuccessful, run the
-//    module. If found and successful, skip.
+//  1. RunPerBoot - The module should run every boot, no matter what. The simplest case.
+//  2. RunPerInstance - The module should run once on every instance. Here we must look for the current instance ID
+//     in the instance history and if found, compare the current module's key with all successfully run keys. If
+//     not found, run the module. If found and unsuccessful, run the module. If found and successful, skip.
+//  3. RunOnce - The module should run once, ever. The process here is similar to RunPerInstance except the key must
+//     be searched for in every instance history. If not found, run the module. If found and unsuccessful, run the
+//     module. If found and successful, skip.
 func (m *Module) ShouldRun(instanceID string, history []History) (shouldRun bool) {
 	// RunPerBoot runs every time
 	if m.RunPerBoot {

@@ -5,18 +5,15 @@ import (
 	"log"
 	"os"
 	"os/exec"
-	"path"
+	"path/filepath"
 	"runtime"
 	"strconv"
 
+	"github.com/aws/ec2-macos-init/internal/paths"
 	"github.com/aws/ec2-macos-init/lib/ec2macosinit"
 )
 
 const (
-	baseDir            = "/usr/local/aws/ec2-macos-init"
-	configFile         = "init.toml"
-	instanceHistoryDir = "instances"
-	historyFileName    = "history.json"
 	loggingTag         = "ec2-macOS-init"
 	gitHubLink         = "https://github.com/aws/ec2-macos-init"
 )
@@ -26,10 +23,10 @@ var CommitDate string
 var Version string
 
 // printUsage prints the help text when invalid arguments are provided.
-func printUsage() {
+func printUsage(baseDir string) {
 	fmt.Println("Usage: ec2-macos-init <command> <arguments>")
 	fmt.Println("Commands are:")
-	fmt.Println("    run - Run init using configuration located in " + path.Join(baseDir, configFile))
+	fmt.Println("    run - Run init using configuration located in " + filepath.Join(baseDir, paths.InitTOML))
 	fmt.Println("    clean - Remove instance history from disk")
 	fmt.Println("    version - Print version information")
 	fmt.Println("For more help: ec2-macos-init <command> -h")
@@ -69,6 +66,8 @@ func checkRootPermissions() (root bool, err error) {
 }
 
 func main() {
+	const baseDir = paths.DefaultBaseDirectory
+
 	// Set up logging
 	logger, err := ec2macosinit.NewLogger(loggingTag, true, true)
 	if err != nil {
@@ -92,29 +91,29 @@ func main() {
 	// Check for no command
 	if len(os.Args) < 2 {
 		logger.Info("Must provide a command!")
-		printUsage()
+		printUsage(baseDir)
 		os.Exit(2)
 	}
 
 	// Setup InitConfig
 	config := &ec2macosinit.InitConfig{
-		HistoryPath:     path.Join(baseDir, instanceHistoryDir),
-		HistoryFilename: historyFileName,
+		HistoryPath:     paths.AllInstancesHistory(baseDir),
+		HistoryFilename: paths.HistoryJSON,
 		Log:             logger,
 	}
 
 	// Command switch
 	switch command := os.Args[1]; command {
 	case "run":
-		run(config)
+		run(baseDir, config)
 	case "clean":
-		clean(config)
+		clean(baseDir, config)
 	case "version":
 		printVersion()
 		os.Exit(0)
 	default:
 		logger.Errorf("%s is not a valid command", command)
-		printUsage()
+		printUsage(baseDir)
 		os.Exit(2)
 	}
 }

@@ -1,7 +1,10 @@
 package ec2macosinit
 
 import (
+	"bytes"
+	"encoding/base64"
 	"fmt"
+	"io"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -10,19 +13,19 @@ import (
 
 // UserDataModule contains contains all necessary configuration fields for running a User Data module.
 type UserDataModule struct {
+	// ExecuteUserData must be set to `true` for the userdata script contents to
+	// be executed.
 	ExecuteUserData bool `toml:"ExecuteUserData"`
 }
 
-const (
-	baseDir  = "/usr/local/aws/ec2-macos-init/instances"
-	fileName = "userdata"
-)
+// Do fetches userdata and writes it to a file in the instance history. The
+// written script is then executed when ExecuteUserData is true.
+func (m *UserDataModule) Do(mctx *ModuleContext) (message string, err error) {
+	const scriptFileName = "userdata"
+	userdataScript := filepath.Join(mctx.InstanceHistoryPath(), scriptFileName)
 
-// Do for UserDataModule gets the userdata from IMDS and writes it to a file in the instance history. If configured,
-// it runs the user data as an executable.
-func (c *UserDataModule) Do(ctx *ModuleContext) (message string, err error) {
 	// Get user data from IMDS
-	ud, respCode, err := ctx.IMDS.getIMDSProperty("user-data")
+	ud, respCode, err := mctx.IMDS.getIMDSProperty("user-data")
 	if err != nil {
 		return "", fmt.Errorf("ec2macosinit: error getting user data from IMDS: %s\n", err)
 	}
@@ -33,33 +36,18 @@ func (c *UserDataModule) Do(ctx *ModuleContext) (message string, err error) {
 		return "", fmt.Errorf("ec2macosinit: received an unexpected response code from IMDS: %d - %s\n", respCode, err)
 	}
 
-	// Attempt to base64 decode userdata.
-	// This maintains consistency alongside Amazon Linux 2's cloud-init, which states:
-	//     "Some tools and users will base64 encode their data before handing it to
-	//      an API like boto, which will base64 encode it again, so we try to decode."
-	decoded, err := decodeBase64(ud)
-	if err == nil {
-		ud = decoded
-	}
-
-	// Write user data to file
-	userDataFile := filepath.Join(baseDir, ctx.IMDS.InstanceID, fileName)
-	f, err := os.OpenFile(userDataFile, os.O_CREATE|os.O_WRONLY, 0755)
+	err = writeShellScript(userdataScript, userdataReader(ud))
 	if err != nil {
-		return "", fmt.Errorf("ec2macosinit: error while opening user data file: %s\n", err)
-	}
-	defer f.Close()
-	if _, err := f.WriteString(ud); err != nil {
-		return "", fmt.Errorf("ec2macosinit: error while writing to user data file: %s\n", err)
+		return "", fmt.Errorf("userdata script: %w", err)
 	}
 
 	// If we don't want to execute the user data, exit nicely - we're done
-	if !c.ExecuteUserData {
+	if !m.ExecuteUserData {
 		return "successfully handled user data with no execution request", nil
 	}
 
 	// Execute user data script
-	out, err := executeCommand([]string{userDataFile}, "", []string{})
+	out, err := executeCommand([]string{userdataScript}, "", []string{})
 	if err != nil {
 		if strings.Contains(err.Error(), "exec format error") {
 			contentType := http.DetectContentType([]byte(ud))
@@ -70,4 +58,39 @@ func (c *UserDataModule) Do(ctx *ModuleContext) (message string, err error) {
 	}
 
 	return fmt.Sprintf("successfully ran user data with stdout: [%s] and stderr: [%s]", out.stdout, out.stderr), nil
+}
+
+// userdataReader provides a decoded reader for the provided userdata text.
+// Userdata text may be encoded either as plain text or as base64 encoded plain
+// text, so we detect and prepare a reader depending on what's given.
+func userdataReader(text string) io.Reader {
+	// Attempt to base64 decode userdata.
+	//
+	// This maintains consistency alongside Amazon Linux 2's cloud-init, which states:
+	//
+	//     "Some tools and users will base64 encode their data before handing it to
+	//      an API like boto, which will base64 encode it again, so we try to decode."
+	//
+	decoded, err := base64.StdEncoding.DecodeString(text)
+	if err == nil {
+		return bytes.NewBuffer(decoded)
+	} else {
+		return bytes.NewBufferString(text)
+	}
+}
+
+// writeShellScript writes an executable file to the provided path.
+func writeShellScript(path string, rd io.Reader) error {
+	f, err := os.OpenFile(path, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0755)
+	if err != nil {
+		return err
+	}
+
+	_, err = io.Copy(f, rd)
+	if err != nil {
+		_ = f.Close()
+		return fmt.Errorf("write contents: %w", err)
+	}
+
+	return f.Close()
 }

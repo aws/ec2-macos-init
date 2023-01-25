@@ -2,7 +2,6 @@ package ec2macosinit
 
 import (
 	"bytes"
-	"encoding/base64"
 	"fmt"
 	"io"
 	"os"

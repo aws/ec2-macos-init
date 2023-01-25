@@ -7,6 +7,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/aws/ec2-macos-init/internal/paths"
 	"github.com/aws/ec2-macos-init/lib/ec2macosinit"
 )
 
@@ -20,7 +21,7 @@ import (
 //     is started in its own goroutine and the group waits for everything in that group to finish. If any module in that
 //     group fails and has FatalOnError set, the entire application exits early.
 //  7. Write history file - After any run, a history.json file is written to the instance history directory for future runs.
-func run(c *ec2macosinit.InitConfig) {
+func run(baseDir string, c *ec2macosinit.InitConfig) {
 
 	c.Log.Info("Fetching instance ID from IMDS...")
 	// An instance ID from IMDS is a prerequisite for run() to be able to check instance history
@@ -35,7 +36,7 @@ func run(c *ec2macosinit.InitConfig) {
 
 	// Read init config
 	c.Log.Info("Reading init config...")
-	err = c.ReadConfig(filepath.Join(baseDir, configFile))
+	err = c.ReadConfig(filepath.Join(baseDir, paths.InitTOML))
 	if err != nil {
 		c.Log.Fatalf(computeExitCode(c, 66), "Error while reading init config file: %s", err)
 	}
@@ -94,13 +95,15 @@ func run(c *ec2macosinit.InitConfig) {
 				// Run module if it should be run
 				if m.ShouldRun(c.IMDS.InstanceID, *h) {
 					c.Log.Infof("Running module [%s] (type: %s, group: %d)\n", m.Name, m.Type, m.PriorityGroup)
-					var message string
-					var err error
 					ctx := &ec2macosinit.ModuleContext{
+
 						Logger: c.Log,
 						IMDS:   &c.IMDS,
+						BaseDirectory: baseDir,
 					}
 					// Run appropriate module
+					var message string
+					var err error
 					switch t := m.Type; t {
 					case "command":
 						message, err = m.CommandModule.Do(ctx)

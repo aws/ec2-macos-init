@@ -12,7 +12,7 @@ type Logger struct {
 	LogToStdout    bool
 	LogToSystemLog bool
 	Tag            string
-	SystemLog      syslog.Writer
+	SystemLog      *syslog.Writer
 }
 
 // NewLogger creates a new logger. Logger writes using the LOG_LOCAL0 facility by default if system logging is enabled.
@@ -30,7 +30,7 @@ func NewLogger(tag string, systemLog bool, stdout bool) (logger *Logger, err err
 		log.SetFlags(log.LstdFlags | log.Lmicroseconds)
 	}
 
-	return &Logger{LogToSystemLog: systemLog, LogToStdout: stdout, Tag: tag, SystemLog: *syslogger}, nil
+	return &Logger{LogToSystemLog: systemLog, LogToStdout: stdout, Tag: tag, SystemLog: syslogger}, nil
 }
 
 // Info writes info to stdout and/or the system log.

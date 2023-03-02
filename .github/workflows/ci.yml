@@ -1,0 +1,37 @@
+name: Build
+
+on: [push]
+
+jobs:
+  buildtest:
+    strategy:
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v3
+      - name: Setup Go
+        uses: actions/setup-go@v3
+        with:
+          go-version: stable
+          cache: true
+      - name: Fetch deps
+        run: make -f ci/Makefile --include-dir ci ci-deps
+      - name: Do Build
+        run: make -f ci/Makefile --include-dir ci ci-build
+      - name: Run Tests
+        run: make -f ci/Makefile --include-dir ci ci-test
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - name: Setup Go
+        uses: actions/setup-go@v3
+        with:
+          go-version: stable
+          cache: true
+      - name: golangci-lint
+        uses: golangci/golangci-lint-action@v3
+      - name: Run Linter
+        run: make -f ci/Makefile --include-dir ci ci-lint
+

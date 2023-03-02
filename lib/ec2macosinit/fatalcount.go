@@ -3,7 +3,6 @@ package ec2macosinit
 import (
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
 	"os"
 )
 
@@ -49,7 +48,7 @@ func (r *FatalCount) IncrementFatalCount() (err error) {
 	}
 
 	// Write the bytes to the counter file
-	err = ioutil.WriteFile(fatalCountFile, rcBytes, 0644)
+	err = os.WriteFile(fatalCountFile, rcBytes, 0644)
 	if err != nil {
 		return fmt.Errorf("ec2macosinit: failed to save run counts: %s", err)
 	}
@@ -60,7 +59,7 @@ func (r *FatalCount) IncrementFatalCount() (err error) {
 // readFatalFile reads the temporary file for count.
 func (r *FatalCount) readFatalFile() (err error) {
 	// Read the contents into bytes
-	countsBytes, err := ioutil.ReadFile(fatalCountFile)
+	countsBytes, err := os.ReadFile(fatalCountFile)
 	if err != nil {
 		return fmt.Errorf("ec2macosinit: Failed to read %s: %s", fatalCountFile, err)
 	}

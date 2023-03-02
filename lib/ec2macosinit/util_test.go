@@ -2,7 +2,7 @@ package ec2macosinit
 
 import (
 	"fmt"
-	"io/ioutil"
+	"io"
 	"strings"
 	"testing"
 	"time"
@@ -12,7 +12,7 @@ import (
 
 func Test_ioReadCloserToString(t *testing.T) {
 	expected := "test string"
-	input := ioutil.NopCloser(strings.NewReader(expected))
+	input := io.NopCloser(strings.NewReader(expected))
 
 	out, err := ioReadCloserToString(input)
 	assert.NoError(t, err)

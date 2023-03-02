@@ -2,7 +2,6 @@ package main
 
 import (
 	"flag"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 
@@ -29,7 +28,7 @@ func clean(baseDir string, c *ec2macosinit.InitConfig) {
 	if *cleanAll {
 		c.Log.Info("Removing all instance history")
 		// Read instance history directory
-		dir, err := ioutil.ReadDir(historyPath)
+		dir, err := os.ReadDir(historyPath)
 		if err != nil {
 			c.Log.Fatalf(66, "Unable to read instance history located at %s: %s", historyPath, err)
 		}

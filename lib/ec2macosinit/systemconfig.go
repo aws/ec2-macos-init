@@ -4,7 +4,6 @@ import (
 	"bufio"
 	_ "embed"
 	"fmt"
-	"io/ioutil"
 	"log"
 	"os"
 	"strconv"
@@ -298,7 +297,7 @@ func checkBoolean(expectedValue, actualValue string) (err error) {
 // checkSSHDReturn uses launchctl to find the exit code for ssh.plist and returns if it was successful
 func (c *SystemConfigModule) checkSSHDReturn() (success bool, err error) {
 	// Launchd can provide status on processes running, this gets that output to be parsed
-	out, err := executeCommand([]string{"launchctl", "list"}, "", []string{})
+	out, _ := executeCommand([]string{"launchctl", "list"}, "", []string{})
 	// Start a line by line scanner
 	scanner := bufio.NewScanner(strings.NewReader(out.stdout))
 	for scanner.Scan() {
@@ -346,7 +345,7 @@ func (c *SystemConfigModule) configureSSHD(ctx *ModuleContext) (configChanges bo
 	scanner := bufio.NewScanner(sshdFile)
 
 	// Create a new temporary file, if changes are detected, it will be moved over the existing file
-	tempSSHDFile, err := ioutil.TempFile("", "sshd_config_fixed.*")
+	tempSSHDFile, err := os.CreateTemp("", "sshd_config_fixed.*")
 	if err != nil {
 		return false, fmt.Errorf("ec2macosinit: error creating %s", tempSSHDFile.Name())
 	}

@@ -2,7 +2,7 @@ package ec2macosinit
 
 import (
 	"fmt"
-	"io/ioutil"
+	"os"
 
 	"github.com/BurntSushi/toml"
 )
@@ -26,7 +26,7 @@ const PerBootFatalLimit = 100
 // ReadConfig reads the configuration file and decodes it into the InitConfig struct.
 func (c *InitConfig) ReadConfig(fileLocation string) (err error) {
 	// Read file
-	rawConfig, err := ioutil.ReadFile(fileLocation)
+	rawConfig, err := os.ReadFile(fileLocation)
 	if err != nil {
 		return fmt.Errorf("ec2macosinit: error reading config file located at %s: %s\n", fileLocation, err)
 	}

@@ -30,7 +30,7 @@ func (c *UserManagementModule) Do(ctx *ModuleContext) (message string, err error
 			return "", fmt.Errorf("ec2macosinit: failed to randomize password: %s", err)
 		}
 	} else {
-		return fmt.Sprint("randomizing password disabled, skipping"), nil
+		return "randomizing password disabled, skipping", nil
 	}
 
 	// For now, `message` will only be set if RandomizePassword is true. Instead of returning above, it is returned here

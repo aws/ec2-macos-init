@@ -11,7 +11,7 @@ var (
 
 // printVersion prints the output for the version command.
 func printVersion() {
-	const gitHubLink  = "https://github.com/aws/ec2-macos-init"
+	const gitHubLink = "https://github.com/aws/ec2-macos-init"
 
 	fmt.Printf("\nEC2 macOS Init\n"+
 		"Version: %s [%s]\n"+

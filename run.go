@@ -97,8 +97,8 @@ func run(baseDir string, c *ec2macosinit.InitConfig) {
 					c.Log.Infof("Running module [%s] (type: %s, group: %d)\n", m.Name, m.Type, m.PriorityGroup)
 					ctx := &ec2macosinit.ModuleContext{
 
-						Logger: c.Log,
-						IMDS:   &c.IMDS,
+						Logger:        c.Log,
+						IMDS:          &c.IMDS,
 						BaseDirectory: baseDir,
 					}
 					// Run appropriate module

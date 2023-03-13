@@ -3,7 +3,6 @@ package ec2macosinit
 import (
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"time"
@@ -47,7 +46,7 @@ func (h HistoryError) Error() string {
 // InstanceHistory struct.
 func (c *InitConfig) GetInstanceHistory() (err error) {
 	// Read instance history directory
-	dirs, err := ioutil.ReadDir(c.HistoryPath)
+	dirs, err := os.ReadDir(c.HistoryPath)
 	if err != nil {
 		return fmt.Errorf("ec2macosinit: unable to read instance history directory: %w", err)
 	}
@@ -81,7 +80,7 @@ func (c *InitConfig) GetInstanceHistory() (err error) {
 // readHistoryFile takes an instance history file and returns a History struct containing the same information.
 func readHistoryFile(file string) (history History, err error) {
 	// Read file
-	historyBytes, err := ioutil.ReadFile(file)
+	historyBytes, err := os.ReadFile(file)
 	if err != nil {
 		return History{}, fmt.Errorf("ec2macosinit: error reading config file located at %s: %w", file, err)
 	}

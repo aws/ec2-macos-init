@@ -2,7 +2,7 @@ package ec2macosinit
 
 import (
 	"fmt"
-	"io/ioutil"
+	"os"
 	"regexp"
 	"strings"
 )
@@ -50,7 +50,7 @@ func (c *MOTDModule) Do(ctx *ModuleContext) (message string, err error) {
 	}
 
 	// Read in the raw contents of the motd file
-	rawFileContents, err := ioutil.ReadFile(motdFile)
+	rawFileContents, err := os.ReadFile(motdFile)
 	if err != nil {
 		return "", fmt.Errorf("ec2macosinit: error reading motd file: %s", err)
 	}
@@ -59,7 +59,7 @@ func (c *MOTDModule) Do(ctx *ModuleContext) (message string, err error) {
 	replacedContents := motdMacOSExpression.ReplaceAll(rawFileContents, []byte(motdString))
 
 	// Write the updated contents back to the motd file
-	err = ioutil.WriteFile(motdFile, replacedContents, 0644)
+	err = os.WriteFile(motdFile, replacedContents, 0644)
 	if err != nil {
 		return "", fmt.Errorf("ec2macosinit: error writing updated motd back to file: %s", err)
 	}

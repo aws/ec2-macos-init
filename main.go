@@ -12,7 +12,7 @@ import (
 )
 
 const (
-	loggingTag         = "ec2-macOS-init"
+	loggingTag = "ec2-macOS-init"
 )
 
 func main() {
@@ -73,7 +73,6 @@ func printUsage(baseDir string) {
 	fmt.Println("    version - Print version information")
 	fmt.Println("For more help: ec2-macos-init <command> -h")
 }
-
 
 // runningAsRoot checks to see if the init application is being run as
 // root.

@@ -6,7 +6,7 @@ require (
 	github.com/BurntSushi/toml v1.2.1
 	github.com/digineo/go-ping v1.0.1
 	github.com/google/go-cmp v0.5.9
-	github.com/stretchr/testify v1.7.2
+	github.com/stretchr/testify v1.8.3
 )
 
 require (

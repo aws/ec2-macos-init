@@ -58,6 +58,7 @@
 ##   6. Set timed to use Amazon Time Sync Service
 ##   7. Update MOTD
 ##   8. Remove SSH group
+##   9. Grow root APFS volume to max EBS volume size
 
 # Set suggested default system configuration settings
 # These kernel and networking parameters are suggested by EC2 for optimal instance performance.
@@ -201,6 +202,15 @@
     FatalOnError = false # Best effort, don't fatal on error
     [Module.Command]
         Cmd = ["/bin/zsh", "-c", 'wifidevice="$(networksetup -listallhardwareports | grep -A 1 "Wi-Fi" | tail -n 1 | cut -d " " -f2)"; if [[ ! -z $wifidevice ]]; then networksetup -setairportpower $wifidevice off; fi'] # Turn off wifi device
+
+# Grow the root APFS volume to the maximum size of the EBS volume
+[[Module]]
+    Name = "GrowRootAPFSVolume"
+    PriorityGroup = 3 # Third group
+    RunPerInstance = true # Run only on the first boot
+    FatalOnError = false # Best effort, don't fatal on error
+    [Module.Command]
+        Cmd = ["/bin/zsh", "-c", "ec2-macos-utils grow --id root"] # Use ec2-macos-utils to grow the container
 
 ### Group 4 ###
 ## This group gets keys from IMDS and allows ssh access to the instance.

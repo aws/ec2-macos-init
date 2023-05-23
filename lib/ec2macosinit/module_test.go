@@ -6,6 +6,12 @@ import (
 	"time"
 )
 
+// values used via pointers in module configs
+var (
+	trueValue  = true
+	falseValue = false
+)
+
 func TestModule_validateModule(t *testing.T) {
 	tests := []struct {
 		name    string
@@ -102,6 +108,35 @@ func TestModule_identifyModule(t *testing.T) {
 			},
 			wantType: "networkcheck",
 			wantErr:  false,
+		},
+		{
+			name: "Good case: Enable secureSSHDConfig",
+			fields: Module{
+				SystemConfigModule: SystemConfigModule{
+					SecureSSHDConfig: &trueValue,
+				},
+			},
+			wantType: "systemconfig",
+			wantErr:  false,
+		},
+		{
+			name: "Good case: Disable secureSSHDConfig",
+			fields: Module{
+				SystemConfigModule: SystemConfigModule{
+					SecureSSHDConfig: &falseValue,
+				},
+			},
+			wantType: "systemconfig",
+			wantErr:  false,
+		},
+		{
+			name: "Bad case: don't provide secureSSHDConfig",
+			fields: Module{
+				SystemConfigModule: SystemConfigModule{
+					SecureSSHDConfig: nil,
+				},
+			},
+			wantErr: true,
 		},
 	}
 	for _, tt := range tests {

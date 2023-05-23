@@ -57,7 +57,7 @@ type ModifyDefaults struct {
 
 // SystemConfigModule contains all necessary configuration fields for running a System Configuration module.
 type SystemConfigModule struct {
-	SecureSSHDConfig bool             `toml:"secureSSHDConfig"`
+	SecureSSHDConfig *bool            `toml:"secureSSHDConfig"`
 	ModifySysctl     []ModifySysctl   `toml:"Sysctl"`
 	ModifyDefaults   []ModifyDefaults `toml:"Defaults"`
 }
@@ -69,7 +69,7 @@ func (c *SystemConfigModule) Do(ctx *ModuleContext) (message string, err error) 
 
 	// Secure SSHD configuration
 	var sshdConfigChanges, sshdUnchanged, sshdErrors int32
-	if c.SecureSSHDConfig {
+	if c.SecureSSHDConfig != nil && *c.SecureSSHDConfig {
 		wg.Add(1)
 		go func() {
 			err := writeEC2SSHConfigs()

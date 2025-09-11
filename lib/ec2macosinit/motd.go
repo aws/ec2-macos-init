@@ -86,6 +86,8 @@ func getVersionName(osProductVersion string) (versionName string) {
 		versionName = "Sonoma"
 	case strings.HasPrefix(osProductVersion, "15"):
 		versionName = "Sequoia"
+	case strings.HasPrefix(osProductVersion, "26"):
+		versionName = "Tahoe"
 	}
 
 	return versionName

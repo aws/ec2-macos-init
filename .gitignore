@@ -11,3 +11,4 @@ pkg
 commitdate.txt
 version.txt
 ec2-macos-init*
+.direnv

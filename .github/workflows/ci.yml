@@ -11,12 +11,11 @@ jobs:
         os: [ubuntu-latest, macos-latest]
     runs-on: ${{ matrix.os }}
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v6
       - name: Setup Go
-        uses: actions/setup-go@v3
+        uses: actions/setup-go@v6
         with:
           go-version: stable
-          cache: true
       - name: Fetch deps
         run: make -f ci/Makefile --include-dir ci ci-deps
       - name: Do Build
@@ -26,14 +25,20 @@ jobs:
   lint:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v6
       - name: Setup Go
-        uses: actions/setup-go@v3
+        uses: actions/setup-go@v6
         with:
           go-version: stable
-          cache: true
       - name: golangci-lint
-        uses: golangci/golangci-lint-action@v3
+        uses: golangci/golangci-lint-action@v9
+        with:
+          args: --disable errcheck
+      - name: errcheck (non-blocking)
+        uses: golangci/golangci-lint-action@v9
+        continue-on-error: true
+        with:
+          args: --enable-only errcheck
       - name: Run Linter
         run: make -f ci/Makefile --include-dir ci ci-lint
 

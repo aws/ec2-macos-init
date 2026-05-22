@@ -3,7 +3,7 @@ module github.com/aws/ec2-macos-init
 go 1.24.0
 
 require (
-	github.com/BurntSushi/toml v1.5.0
+	github.com/BurntSushi/toml v1.6.0
 	github.com/digineo/go-ping v1.2.0
 	github.com/google/go-cmp v0.7.0
 	github.com/stretchr/testify v1.11.1

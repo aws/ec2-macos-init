@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"sync"
 	"time"
 )
 
@@ -39,6 +40,58 @@ func (h HistoryError) Unwrap() error {
 
 func (h HistoryError) Error() string {
 	return h.err.Error()
+}
+
+// HistoryRecorder writes module results to the history file incrementally as
+// each module completes. It is safe for concurrent use from multiple goroutines.
+type HistoryRecorder struct {
+	mu              sync.Mutex
+	instanceID      string
+	historyPath     string
+	historyFilename string
+	startTime       time.Time
+	results         []ModuleHistory
+}
+
+// NewHistoryRecorder creates a HistoryRecorder that will persist results to the
+// given instance history path.
+func NewHistoryRecorder(instanceID, historyPath, historyFilename string) *HistoryRecorder {
+	return &HistoryRecorder{
+		instanceID:      instanceID,
+		historyPath:     historyPath,
+		historyFilename: historyFilename,
+		startTime:       time.Now(),
+	}
+}
+
+// Record appends a module result and flushes the full history to disk.
+func (r *HistoryRecorder) Record(m *Module) error {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	r.results = append(r.results, ModuleHistory{
+		Key:     m.generateHistoryKey(),
+		Success: m.Success,
+	})
+
+	return r.flush()
+}
+
+func (r *HistoryRecorder) flush() error {
+	history := History{
+		InstanceID:      r.instanceID,
+		RunTime:         r.startTime,
+		ModuleHistories: r.results,
+		Version:         historyVersion,
+	}
+
+	historyBytes, err := json.Marshal(history)
+	if err != nil {
+		return fmt.Errorf("ec2macosinit: unable to marshal history: %w", err)
+	}
+
+	path := filepath.Join(r.historyPath, r.instanceID, r.historyFilename)
+	return safeWrite(path, historyBytes)
 }
 
 // GetInstanceHistory takes a path to instance history directory and a file name for history files and searches for

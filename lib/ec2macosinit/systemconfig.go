@@ -349,6 +349,7 @@ func (c *SystemConfigModule) configureSSHD(ctx *ModuleContext) (configChanges bo
 	if err != nil {
 		return false, fmt.Errorf("ec2macosinit: error creating %s", tempSSHDFile.Name())
 	}
+	defer os.Remove(tempSSHDFile.Name())
 	defer tempSSHDFile.Close()
 
 	// Keep track of line number simply for confirming warning header
@@ -441,6 +442,7 @@ func (c *SystemConfigModule) configureSSHD(ctx *ModuleContext) (configChanges bo
 		}
 
 		// Move the temporary file to the SSHDConfigFile
+		tempSSHDFile.Close()
 		err = os.Rename(tempSSHDFile.Name(), sshdConfigFile)
 		if err != nil {
 			return false, fmt.Errorf("ec2macosinit: unable to save updated configuration to %s", sshdConfigFile)

@@ -1,4 +1,4 @@
-# Default EC2 macOS Init init.toml config for mac1.metal instances
+# Default EC2 macOS Init init.toml config
 
 # Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 #
@@ -27,7 +27,7 @@
         Cmd = ["/usr/sbin/networksetup", "-setnetworkserviceenabled", "Ethernet", "off"]
 
 ### Group 2 ###
-## The only task in the first group is to make sure the network is up.  Some of the subsequent actions require
+## The only task in this group is to make sure the network is up.  Some of the subsequent actions require
 ## a connection to IMDS and will fail if this check doesn't pass.
 
 # Checks that the network is up
@@ -40,7 +40,7 @@
         PingCount = 3 # Three attempts
 
 ### Group 3 ###
-## The second group has many actions that can be run in parallel including:
+## This group has many actions that can be run in parallel including:
 ##   1. Optimize kernel and networking parameters
 ##   2. Disable auto-update
 ##   3. Apply suggested SSHD security settings
@@ -77,31 +77,6 @@
             value = "net.inet.tcp.recvspace=1048576"
         [[Module.SystemConfig.Sysctl]]
             value = "net.link.generic.system.rcvq_maxlen=1024"
-        [[Module.SystemConfig.Defaults]]
-            plist = "/Library/Preferences/com.apple.SoftwareUpdate.plist"
-            parameter = "AutomaticallyInstallMacOSUpdates"
-            type = "bool"
-            value = "false"
-        [[Module.SystemConfig.Defaults]]
-            plist = "/Library/Preferences/com.apple.SoftwareUpdate.plist"
-            parameter = "AutomaticCheckEnabled"
-            type = "bool"
-            value = "false"
-        [[Module.SystemConfig.Defaults]]
-            plist = "/Library/Preferences/com.apple.SoftwareUpdate.plist"
-            parameter = "AutomaticDownload"
-            type = "bool"
-            value = "false"
-        [[Module.SystemConfig.Defaults]]
-            plist = "/Library/Preferences/com.apple.SoftwareUpdate.plist"
-            parameter = "CriticalUpdateInstall"
-            type = "bool"
-            value = "false"
-        [[Module.SystemConfig.Defaults]]
-            plist = "/Library/Preferences/com.apple.SoftwareUpdate.plist"
-            parameter = "ConfigDataInstall"
-            type = "bool"
-            value = "false"
 
 # Apply secure settings to SSHD on every boot
 # To manage ssh_config separately, disable this module

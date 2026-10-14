@@ -82,6 +82,9 @@ func run(baseDir string, c *ec2macosinit.InitConfig) {
 	}
 	c.Log.Info("Successfully gathered instance history")
 
+	// Create a history recorder to persist results incrementally
+	recorder := ec2macosinit.NewHistoryRecorder(c.IMDS.InstanceID, c.HistoryPath, c.HistoryFilename)
+
 	// Process each module by priority level
 	var aggregateFatal bool
 	var aggFatalModuleName string
@@ -140,6 +143,10 @@ func run(baseDir string, c *ec2macosinit.InitConfig) {
 					m.Success = true
 					c.Log.Infof("Skipping module [%s] (type: %s, group: %d) due to Run type setting\n", m.Name, m.Type, m.PriorityGroup)
 				}
+				// Record result incrementally so history is persisted even if a later module crashes
+				if err := recorder.Record(m); err != nil {
+					c.Log.Errorf("Error recording history for module [%s]: %s", m.Name, err)
+				}
 				wg.Done()
 			}(&c.ModulesByPriority[i][j], &c.InstanceHistory)
 		}
@@ -150,14 +157,6 @@ func run(baseDir string, c *ec2macosinit.InitConfig) {
 			break
 		}
 	}
-
-	// Write history file
-	c.Log.Infof("Writing instance history for instance %s...", c.IMDS.InstanceID)
-	err = c.WriteHistoryFile()
-	if err != nil {
-		c.Log.Fatalf(computeExitCode(c, 73), "Error writing instance history file: %s", err)
-	}
-	c.Log.Info("Successfully wrote instance history")
 
 	// If any module triggered an aggregate fatal, exit 1
 	if aggregateFatal {

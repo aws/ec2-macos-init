@@ -190,6 +190,32 @@ the use of `sysctl` and `defaults`.
 ```
 
 
+### FileVaultPrompt
+The `FileVaultPrompt` module keeps macOS from prompting for the password of FileVault-locked volumes that belong to the host.
+On instance types where the host has FileVault on, the host's own volumes on the internal disk are locked; macOS tries
+to mount them at boot and prompts for a password the instance does not have.
+
+* `NoAutoMountInternalVolumes` (`bool`) - Required; When `true`, adds `UUID=<uuid> none auto ro,noauto,nobrowse` to `/etc/fstab`
+  for every FileVault-encrypted volume on a disk internal to the host, skipping the booted APFS container. Each entry is
+  preceded by a comment line identifying `ec2-macos-init` as the source and is written once per UUID. Entries are never
+  removed; an entry for a volume that is not present (for example in an AMI launched on a different host) is ignored by
+  macOS. Writing `/etc/fstab` requires Full Disk Access.
+
+Volumes are selected by property rather than by name or instance type, since names and UUIDs differ between hosts and
+the set of instance types with host FileVault changes over time. The module is a no-op on instance types where the host
+does not use FileVault. To keep the default macOS behavior, remove the module from `init.toml`.
+
+#### Example
+```toml
+[[Module]]
+  Name = "DisableInternalFileVaultAutomount"
+  PriorityGroup = 1 # First group
+  RunPerBoot = true # Run every boot: UUIDs differ per host and a failed write is retried next boot
+  FatalOnError = false # Best effort, don't fatal on error
+  [Module.FileVaultPrompt]
+    NoAutoMountInternalVolumes = true
+```
+
 ### User Management
 The `UserManagement` module provides the ability to safely randomize an existing user's password. 
 

@@ -119,6 +119,8 @@ func run(baseDir string, c *ec2macosinit.InitConfig) {
 						message, err = m.SystemConfigModule.Do(ctx)
 					case "usermanagement":
 						message, err = m.UserManagementModule.Do(ctx)
+					case "filevaultprompt":
+						message, err = m.FileVaultPromptModule.Do(ctx)
 					default:
 						message = "unknown module type"
 						err = fmt.Errorf("unknown module type")

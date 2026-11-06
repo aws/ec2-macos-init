@@ -26,6 +26,20 @@
     [Module.Command]
         Cmd = ["/usr/sbin/networksetup", "-setnetworkserviceenabled", "Ethernet", "off"]
 
+# Disable automount of FileVault volumes on the host's internal disk
+# The host's own macOS install lives on the internal disk and, on instance types where the host has FileVault on, its
+# volumes are locked. macOS tries to mount them at boot and prompts for a password the customer does not have. The
+# module selects volumes by property, not by instance type or volume name, so it covers any type once FileVault is
+# enabled there and is a no-op on types without it. UUIDs differ per host, so this runs every boot.
+# To keep the default macOS behavior, remove this module.
+[[Module]]
+    Name = "DisableInternalFileVaultAutomount"
+    PriorityGroup = 1 # First group
+    RunPerBoot = true # Run every boot: UUIDs differ per host and a failed write is retried next boot
+    FatalOnError = false # Best effort, don't fatal on error
+    [Module.FileVaultPrompt]
+        NoAutoMountInternalVolumes = true # Add ro,noauto,nobrowse /etc/fstab entries for the host's locked volumes
+
 ### Group 2 ###
 ## The only task in the first group is to make sure the network is up.  Some of the subsequent actions require
 ## a connection to IMDS and will fail if this check doesn't pass.
